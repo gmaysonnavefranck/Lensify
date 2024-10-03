@@ -20,4 +20,9 @@ class Text extends Model
     {
         return $this->belongsTo(Author::class)->nullable();
     }
+
+    public function textNotes()
+    {
+        return $this->hasMany(TextNote::class);
+    }
 }
