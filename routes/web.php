@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\AuthorController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TextController;
+use App\Http\Controllers\ChatController;
 use App\Models\Author;
 use App\Models\Text;
 use Illuminate\Foundation\Application;
@@ -17,7 +19,7 @@ Route::get('/', function () {
     ]);
 });
 
-Route::prefix('texts')->group(function () {
+Route::middleware(['auth', 'verified'])->prefix('texts')->group(function () {
     Route::post('/', [TextController::class, 'store']);
 
     Route::get('/', function () {
@@ -28,17 +30,28 @@ Route::prefix('texts')->group(function () {
         return Inertia::render('Texts/Text', ['text' => Text::with('author')->findOrFail($id)]);
     })->name('texts.show');
 
-    Route::get('create', function () {
-        return Inertia::render('Texts/Create', ['authors' => Author::all()]);
-    });
-
 });
 
-Route::get('authors', function () {
-    return Inertia::render('Authors/Authors', [
-        'authors' => Author::with('texts')->get(),
-    ]);
-})->middleware(['auth', 'verified'])->name('dashboard');
+Route::middleware(['auth', 'verified'])->prefix('authors')->group(function () {
+    Route::post('/', [AuthorController::class, 'store']);
+
+    Route::get('/', function () {
+        return Inertia::render('Authors/Authors', [
+            'authors' => Author::with('texts')->get(),
+        ]);
+    });
+
+    Route::get('{id}', function ($id) {
+        return Inertia::render('Authors/Author', ['author' => Author::findOrFail($id)]);
+    })->name('authors.show');
+});
+
+
+Route::prefix('chat')->group(function () {
+    Route::post('/analyze-text', [ChatController::class, 'analyzeText']);
+});
+
+
 
 Route::get('quotes', function () {
     return Inertia::render('Quotes/Quotes');

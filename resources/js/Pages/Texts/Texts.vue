@@ -17,12 +17,6 @@
     author_id: null,
   });
 
-  function openAddTextModal() {}
-
-  function createText() {
-    Inertia.post('/texts', newText.value);
-  }
-
   defineProps<TextsPageProps>();
 </script>
 
