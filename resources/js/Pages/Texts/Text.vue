@@ -18,7 +18,6 @@
 
   onMounted(() => {
     document.addEventListener('mouseup', function () {
-      if(!window)
       if (window.getSelection().toString().length > 0) {
         selectedText.value = window.getSelection().toString();
       }
@@ -63,10 +62,10 @@
           </div>
           <div v-else>
             <button class="my-2 border px-3 py-1" @click="associateAuthor">Associate author</button>
-          <Link :href="`/texts/${text.id}/assign-author`" as="button" method="post" :data="{ author_id: 1}">Create Text</Link>
-
+            <Link :href="`/texts/${text.id}/assign-author`" as="button" method="post" :data="{ author_id: 1 }"
+              >Create Text</Link
+            >
           </div>
-
         </div>
         <hr class="my-6 h-px w-full bg-slate-400" />
         <div>
@@ -91,20 +90,18 @@
   </AuthLayout>
 </template>
 
- <style scoped>
+<style scoped>
+  .text-box {
+    --s: 50px; /* the size on the corner */
+    --t: 5px; /* the thickness of the border */
+    --g: 20px; /* the gap between the border and image */
 
-.text-box {
-  --s: 50px; /* the size on the corner */
-  --t: 5px;  /* the thickness of the border */
-  --g: 20px; /* the gap between the border and image */
-  
-  padding: calc(var(--g) + var(--t));
-  outline: var(--t) solid #B38184; /* the color here */
-  outline-offset: calc(-1*var(--t));
-  mask:
-    conic-gradient(at var(--s) var(--s),#0000 75%,#000 0)
-    0 0/calc(100% - var(--s)) calc(100% - var(--s)),
-    linear-gradient(#000 0 0) content-box;
-  transition: .4s;
-}
+    padding: calc(var(--g) + var(--t));
+    outline: var(--t) solid #b38184; /* the color here */
+    outline-offset: calc(-1 * var(--t));
+    mask:
+      conic-gradient(at var(--s) var(--s), #0000 75%, #000 0) 0 0 / calc(100% - var(--s)) calc(100% - var(--s)),
+      linear-gradient(#000 0 0) content-box;
+    transition: 0.4s;
+  }
 </style>
