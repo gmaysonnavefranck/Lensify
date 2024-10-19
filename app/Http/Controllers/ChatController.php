@@ -10,7 +10,7 @@ class ChatController extends Controller
     public function chat(String $prompt) {
 
         $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . env('OPENAI_API_KEY'),
+            'Authorization' => 'Bearer ' . '***REMOVED***',
         ])->post('https://api.openai.com/v1/chat/completions', [
             'model' => 'gpt-4o-mini',
             'temperature' => 0.7,
