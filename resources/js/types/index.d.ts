@@ -15,13 +15,22 @@ export type PageProps<T extends Record<string, unknown> = Record<string, unknown
 };
 
 export type Author = {
-  id: number;
+  id?: number;
   name: string;
+  themes?: string[];
+  genres?: string[];
+  famous_works?: string[];
+  period?: string;
+  key_facts?: string[];
+  born_year?: string;
+  death_year?: string;
+  nationality?: string;
+  texts?: Text[];
 };
 
 export type Text = {
-  id: number;
+  id?: number;
   title: string;
   content: string;
-  author: Author;
+  author?: Author;
 };

@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Author;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use App\Models\Text;
+use Inertia\Inertia;
 
 class AuthorController extends Controller
 {
@@ -12,15 +15,9 @@ class AuthorController extends Controller
      */
     public function index()
     {
-        //
-    }
-
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
-    {
-        //
+        return Inertia::render('Authors/Authors', [
+            'authors' => Author::with('texts')->get(),
+        ]);
     }
 
     /**
@@ -49,7 +46,7 @@ class AuthorController extends Controller
             'death_year' => $authorInfo->deathYear,
             'famous_works' => json_encode($authorInfo->famousWorks),
             'nationality' => $authorInfo->nationality,
-            'user_id' => \Illuminate\Support\Facades\Auth::user()->id,
+            'user_id' => Auth::user()->id,
         ]);
 
         return redirect()->route('authors.show', ['id' => $newAuthor->id]);
@@ -58,17 +55,9 @@ class AuthorController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Author $author)
+    public function show(Request $request)
     {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Author $author)
-    {
-        //
+        return Inertia::render('Authors/Author', ['author' => Author::findOrFail($request->route('id'))]);
     }
 
     /**
@@ -84,6 +73,44 @@ class AuthorController extends Controller
      */
     public function destroy(Author $author)
     {
-        //
+        // Ensure the user is authorized to delete this author
+        if ($author->user_id !== Auth::id()) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        // Set the author_id to null for all texts associated with this author
+        Text::where('author_id', $author->id)->update(['author_id' => null]);
+
+        // Now delete the author
+        $author->delete();
+
+        return Inertia::render(route('authors.index'));
+    }
+
+    public function assignTexts(Request $request, Author $author)
+    {
+        // Ensure the author belongs to the currently authenticated user
+        if ($author->user_id !== Auth::id()) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+    
+        // Validate the request to ensure text_ids is an array of integers
+        $validated = $request->validate([
+            'text_ids' => 'required|array',
+            'text_ids.*' => 'exists:texts,id' // Ensure each ID exists in the texts table
+        ]);
+    
+        // Fetch the texts and link them to the author
+        $texts = Text::whereIn('id', $validated['text_ids'])->get();
+        
+        foreach ($texts as $text) {
+            $text->author()->associate($author);
+            $text->save();
+        }
+    
+        return response()->json([
+            'message' => 'Texts successfully linked to the author.',
+            'author' => $author->load('texts') // Load texts for confirmation
+        ]);
     }
 }
