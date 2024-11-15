@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Author;
+use App\Models\Text;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\Text;
 use Inertia\Inertia;
 
 class AuthorController extends Controller
@@ -30,7 +30,7 @@ class AuthorController extends Controller
             'name' => 'required|string',
         ]);
 
-        $chatController = new ChatController();
+        $chatController = new ChatController;
         $authorInfo = $chatController->analyzeAuthor($request)->getData();
 
         //dd($authorInfo->themes);
@@ -87,30 +87,37 @@ class AuthorController extends Controller
         return Inertia::render(route('authors.index'));
     }
 
+    public function getAuthorInformation(Request $request)
+    {
+        $chatController = new ChatController;
+
+        return $chatController->findAuthorInformation($request);
+    }
+
     public function assignTexts(Request $request, Author $author)
     {
         // Ensure the author belongs to the currently authenticated user
         if ($author->user_id !== Auth::id()) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
-    
+
         // Validate the request to ensure text_ids is an array of integers
         $validated = $request->validate([
             'text_ids' => 'required|array',
-            'text_ids.*' => 'exists:texts,id' // Ensure each ID exists in the texts table
+            'text_ids.*' => 'exists:texts,id', // Ensure each ID exists in the texts table
         ]);
-    
+
         // Fetch the texts and link them to the author
         $texts = Text::whereIn('id', $validated['text_ids'])->get();
-        
+
         foreach ($texts as $text) {
             $text->author()->associate($author);
             $text->save();
         }
-    
+
         return response()->json([
             'message' => 'Texts successfully linked to the author.',
-            'author' => $author->load('texts') // Load texts for confirmation
+            'author' => $author->load('texts'), // Load texts for confirmation
         ]);
     }
 }

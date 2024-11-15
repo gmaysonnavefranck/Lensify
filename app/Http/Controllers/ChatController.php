@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Support\Facades\Http;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 
 class ChatController extends Controller
 {
-    public function chat(String $prompt) {
+    public function chat(string $prompt)
+    {
 
         $response = Http::withHeaders([
             'Authorization' => 'Bearer ' . '***REMOVED***',
@@ -17,9 +18,9 @@ class ChatController extends Controller
             'messages' => [
                 [
                     'role' => 'user',
-                    'content' => $prompt
-                ]
-            ]
+                    'content' => $prompt,
+                ],
+            ],
         ]);
 
         // Extract the response content and clean the markdown code block
@@ -33,25 +34,28 @@ class ChatController extends Controller
         return $jsonResponse;
     }
 
-    public function analyzeText(Request $request) {
+    public function analyzeText(Request $request)
+    {
         $text = $request->input('text');
-        $prompt = "Create a foot note based on this piece of text: " . $text . " Please, return the response as a JSON object with footNote as its key.";
+        $prompt = 'Create a foot note based on this piece of text: ' . $text . ' Please, return the response as a JSON object with footNote as its key.';
 
         return response()->json($this->chat($prompt));
     }
 
-    public function analyzeAuthor(Request $request) {
+    public function findAuthorInformation(Request $request)
+    {
         $name = $request->input('name');
-        $prompt = "Generate a JSON object with the following keys for the literary author $name:
+        $prompt = "You are a literary expert, generate a JSON object with the following keys for the literary author {$name}:
             themes: Common themes in their works.
             genres: Genres they worked in.
             period: Literary period they belong to.
-            keyFacts: Key facts and major life events.
-            bornYear: Year of birth.
-            deathYear: Year of death (if applicable).
-            famousWorks: Top 3 famous works.
+            key_facts: Key facts and major life events.
+            born_year: Year of birth.
+            death_year: Year of death (if applicable).
+            famous_works: Top 3 famous works.
             nationality: Their nationality.
-            only fields with plural keys should be arrays and the dates can be strings if needed to.";
+            only fields with plural keys should be arrays and the dates can be strings if needed to.
+            success: If you can't find the author return false here, otherwise return true.";
 
         return response()->json($this->chat($prompt));
     }
