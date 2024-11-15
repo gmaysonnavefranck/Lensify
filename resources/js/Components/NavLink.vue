@@ -14,20 +14,24 @@
 
 <template>
   <Link :href="href" class="navLink" :class="{ selected: selected }">
-    <Icon :icon="icon" :alt="text" class="h-6 w-6 text-[#8491A5]" :class="{ '!text-white': selected }" />
-    <span class="font-semibold leading-5">{{ text }}</span>
+    <Icon :icon="icon" :alt="text" class="h-4 w-4" />
+    <span class="font-semibold leading-4">{{ text }}</span>
   </Link>
 </template>
 
 <style lang="postcss" scoped>
   .navLink {
-    @apply mb-2 flex items-center gap-4 rounded-lg px-4 py-[10px] text-[#526581];
+    @apply flex items-center gap-2 border-b-2 border-b-transparent px-3 py-2 text-primary;
 
     &:hover:not(.selected) {
-      @apply bg-slate-100;
+      @apply border-gray-200 text-primaryHover;
+    }
+
+    &:active {
+      @apply !text-primaryActive;
     }
   }
   .selected {
-    @apply bg-[#007AFF] text-white;
+    @apply border-primary;
   }
 </style>

@@ -12,34 +12,24 @@
 <template>
   <Head title="Home" />
   <div class="flex min-h-screen flex-col">
-    <header class="flex select-none items-center justify-between p-4">
+    <header class="flex select-none items-center justify-between border-b-2 border-gray-200 px-3 py-6">
       <div class="flex items-center">
-        <img src="../Assets/icon.png" alt="Logo" class="h-20 w-20" />
-        <span class="ml-5 text-4xl">Lensify</span>
-        <input type="text" class="ml-10 w-96 rounded-lg p-2 text-white" placeholder="Search for authors and titles" />
+        <span class="ml-5 font-playfair text-3xl italic text-primary">Lensify</span>
       </div>
-      <div>
-        <img src="../Assets/blankProfile.png" alt="user photo" class="mr-5 h-12 w-12 rounded-full bg-slate-700" />
+      <div class="flex">
+        <nav class="mr-12 flex gap-6 self-center">
+          <NavLink text="Authors" href="/authors" icon="author" :selected="isPageSelected('Authors/Authors')" />
+          <NavLink text="Texts" href="/texts" icon="texts" :selected="isPageSelected('Texts/Texts')" />
+          <NavLink text="Books" href="/books" icon="books" :selected="isPageSelected('Books/Books')" />
+          <NavLink text="Quotes" href="/quotes" icon="quotes" :selected="isPageSelected('Quotes/Quotes')" />
+        </nav>
+        <img src="../Assets/blankProfile.png" alt="user photo" class="h-10 w-10 rounded-full bg-slate-700" />
       </div>
     </header>
-
-    <div class="flex flex-grow">
-      <aside>
-        <nav class="mt-10 w-60 px-4">
-          <ul>
-            <NavLink text="Authors" href="/authors" icon="author" :selected="isPageSelected('Authors/Authors')" />
-            <NavLink text="Texts" href="/texts" icon="texts" :selected="isPageSelected('Texts/Texts')" />
-            <NavLink text="Books" href="/books" icon="books" :selected="isPageSelected('Books/Books')" />
-            <NavLink text="Quotes" href="/quotes" icon="quotes" :selected="isPageSelected('Quotes/Quotes')" />
-          </ul>
-        </nav>
-      </aside>
-
-      <main class="flex-grow rounded-lg rounded-bl-none bg-[#EBEEF2] p-6">
-        <div class="h-full w-full rounded-lg bg-white p-4">
-          <slot />
-        </div>
-      </main>
-    </div>
+    <main class="flex flex-grow justify-center p-10">
+      <div class="h-full w-full max-w-5xl">
+        <slot />
+      </div>
+    </main>
   </div>
 </template>
