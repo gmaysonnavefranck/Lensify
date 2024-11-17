@@ -33,24 +33,22 @@ class AuthorController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'genres' => 'array',
-            'genres.*' => 'string|max:64',
+            'genres.*' => 'string|max:20',
             'themes' => 'array',
-            'themes.*' => 'string',
-            'period' => 'string|max:64',
+            'themes.*' => 'string|max:30',
+            'period' => 'string|max:20',
             'key_facts' => 'array',
             'key_facts.*' => 'string',
             'born_year' => 'string|max:10',
             'death_year' => 'string|max:10',
             'famous_works' => 'array',
             'famous_works.*' => 'string',
-            'nationality' => 'string|max:64',
+            'nationality' => 'string|max:30',
         ]);
 
         // Create the text
         $newAuthor = Author::create([
             'name' => $validated['name'],
-            'themes' => json_encode($validated['themes']),
-            'period' => $validated['period'],
             'key_facts' => json_encode($validated['key_facts']),
             'born_year' => $validated['born_year'],
             'death_year' => $validated['death_year'],
@@ -65,6 +63,20 @@ class AuthorController extends Controller
         }
 
         $newAuthor->genres()->sync($newGenres);
+
+        $newThemes = [];
+        foreach ($validated['themes'] as $theme) {
+            $newThemes[] = Genre::firstOrCreate(['name' => $theme, 'user_id' => Auth::user()->id])->id;
+        }
+
+        $newAuthor->themes()->sync($newThemes);
+
+        $newLiteraryPeriods = [];
+        foreach ($validated['period'] as $period) {
+            $newLiteraryPeriods[] = Genre::firstOrCreate(['name' => $period, 'user_id' => Auth::user()->id])->id;
+        }
+
+        $newAuthor->literaryPeriods()->sync($newLiteraryPeriods);
 
         return redirect()->route('authors.index');
     }
