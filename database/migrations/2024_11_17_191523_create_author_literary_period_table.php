@@ -11,7 +11,7 @@ return new class extends Migration
         Schema::create('author_literar_period', function (Blueprint $table) {
             $table->id();
             $table->foreignId('author_id')->constrained()->onDelete('cascade');
-            $table->foreignId('literar_period_id')->constrained()->onDelete('cascade');
+            $table->foreignId('literary_period_id')->constrained()->onDelete('cascade');
             $table->timestamps();
         });
     }
