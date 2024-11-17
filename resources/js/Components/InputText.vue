@@ -1,14 +1,29 @@
 <script setup lang="ts">
+  import { nextTick, onMounted, ref, watch } from 'vue';
+
   interface InputTextProps {
     placeholder?: string;
     modelValue?: string | number | null;
     disabled?: boolean;
     maxlength?: number;
     label?: string;
+    focus?: boolean;
   }
 
   const props = defineProps<InputTextProps>();
   const emit = defineEmits<{ (e: 'update:modelValue', value: string): void }>();
+
+  const inputRef = ref<HTMLInputElement | null>(null);
+
+  onMounted(() => {
+    if (props.focus && inputRef.value) {
+      nextTick(() => {
+        if (!props.disabled && inputRef.value) {
+          inputRef.value.focus();
+        }
+      });
+    }
+  });
 
   function updateValue(event: Event) {
     const target = event.target as HTMLInputElement;
@@ -22,6 +37,7 @@
       {{ props.label }}
     </label>
     <input
+      ref="inputRef"
       type="text"
       :placeholder="props.placeholder"
       :disabled="props.disabled"

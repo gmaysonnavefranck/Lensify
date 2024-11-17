@@ -25,4 +25,14 @@ class Author extends Model
     {
         return $this->belongsToMany(Genre::class);
     }
+
+    public function themes()
+    {
+        return $this->belongsToMany(Theme::class);
+    }
+
+    public function literaryPeriods()
+    {
+        return $this->belongsToMany(LiteraryPeriod::class);
+    }
 }

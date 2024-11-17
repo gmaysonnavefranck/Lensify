@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Author;
 use App\Models\Genre;
+use App\Models\LiteraryPeriod;
 use App\Models\Text;
+use App\Models\Theme;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -33,10 +35,10 @@ class AuthorController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'genres' => 'array',
-            'genres.*' => 'string|max:20',
+            'genres.*' => 'string|max:64',
             'themes' => 'array',
-            'themes.*' => 'string|max:30',
-            'period' => 'string|max:20',
+            'themes.*' => 'string|max:64',
+            'period' => 'string|max:64',
             'key_facts' => 'array',
             'key_facts.*' => 'string',
             'born_year' => 'string|max:10',
@@ -66,17 +68,14 @@ class AuthorController extends Controller
 
         $newThemes = [];
         foreach ($validated['themes'] as $theme) {
-            $newThemes[] = Genre::firstOrCreate(['name' => $theme, 'user_id' => Auth::user()->id])->id;
+            $newThemes[] = Theme::firstOrCreate(['name' => $theme, 'user_id' => Auth::user()->id])->id;
         }
 
         $newAuthor->themes()->sync($newThemes);
 
-        $newLiteraryPeriods = [];
-        foreach ($validated['period'] as $period) {
-            $newLiteraryPeriods[] = Genre::firstOrCreate(['name' => $period, 'user_id' => Auth::user()->id])->id;
-        }
+        $newLiteraryPeriod = LiteraryPeriod::firstOrCreate(['name' => $validated['period'], 'user_id' => Auth::user()->id])->id;
 
-        $newAuthor->literaryPeriods()->sync($newLiteraryPeriods);
+        $newAuthor->literaryPeriods()->sync($newLiteraryPeriod);
 
         return redirect()->route('authors.index');
     }

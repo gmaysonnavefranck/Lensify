@@ -149,6 +149,7 @@
         <hr />
         <div class="flex flex-col p-6" v-if="!isLoading && !isSavingAuthor">
           <InputText
+            focus
             @keypress.enter="findAuthorInformation"
             v-model="newAuthor.name"
             placeholder="e.g., Dante Alighieri"

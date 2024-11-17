@@ -2,10 +2,15 @@
   <div class="mt-6 flex items-center justify-between pt-6">
     <span class="text-textSecondary">
       Showing
-      <span class="font-medium">
-        {{ (current_page - 1) * per_page + 1 }}-{{ total < current_page * per_page ? total : current_page * per_page }}
-      </span>
-      of
+      <template v-if="total">
+        <span class="font-medium">
+          {{ (current_page - 1) * per_page + 1 }}-{{
+            total < current_page * per_page ? total : current_page * per_page
+          }}
+        </span>
+        of
+      </template>
+
       <span class="font-medium">{{ total }}</span>
       {{ entity }}
     </span>
