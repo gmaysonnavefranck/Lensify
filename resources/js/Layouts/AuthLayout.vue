@@ -27,7 +27,7 @@
       </div>
     </header>
     <main class="flex flex-grow justify-center p-10">
-      <div class="h-full w-full max-w-5xl">
+      <div class="flex max-w-5xl flex-grow">
         <slot />
       </div>
     </main>

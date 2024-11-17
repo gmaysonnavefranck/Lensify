@@ -1,6 +1,6 @@
 <template>
   <button class="button" :class="[type, disabled && 'disabled', text ? 'px-3 py-2' : 'p-2']">
-    <Icon v-if="icon" :icon="icon" class="h-4 w-4" />
+    <Icon v-if="icon" :icon="icon" :class="iconClass ? iconClass : 'h-4 w-4'" />
     <slot> {{ text }} </slot>
   </button>
 </template>
@@ -11,6 +11,7 @@
     text?: string;
     type?: 'primary' | 'secondary' | 'ghost';
     icon?: string;
+    iconClass?: string;
     disabled?: boolean;
   }
 
