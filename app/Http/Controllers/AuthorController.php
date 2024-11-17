@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Author;
+use App\Models\Genre;
 use App\Models\Text;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -16,7 +17,10 @@ class AuthorController extends Controller
     public function index()
     {
         return Inertia::render('Authors/Authors', [
-            'authors' => Author::with('texts')->get(),
+            'authors' => Author::with('texts')
+                ->where('user_id', Auth::user()->id)
+                ->orderBy('created_at', 'desc')
+                ->paginate(9),
         ]);
     }
 
@@ -27,29 +31,42 @@ class AuthorController extends Controller
     {
         // Validate the form input
         $validated = $request->validate([
-            'name' => 'required|string',
+            'name' => 'required|string|max:255',
+            'genres' => 'array',
+            'genres.*' => 'string|max:64',
+            'themes' => 'array',
+            'themes.*' => 'string',
+            'period' => 'string|max:64',
+            'key_facts' => 'array',
+            'key_facts.*' => 'string',
+            'born_year' => 'string|max:10',
+            'death_year' => 'string|max:10',
+            'famous_works' => 'array',
+            'famous_works.*' => 'string',
+            'nationality' => 'string|max:64',
         ]);
-
-        $chatController = new ChatController;
-        $authorInfo = $chatController->analyzeAuthor($request)->getData();
-
-        //dd($authorInfo->themes);
 
         // Create the text
         $newAuthor = Author::create([
             'name' => $validated['name'],
-            'themes' => json_encode($authorInfo->themes),
-            'genres' => json_encode($authorInfo->genres),
-            'period' => $authorInfo->period,
-            'key_facts' => json_encode($authorInfo->keyFacts),
-            'born_year' => $authorInfo->bornYear,
-            'death_year' => $authorInfo->deathYear,
-            'famous_works' => json_encode($authorInfo->famousWorks),
-            'nationality' => $authorInfo->nationality,
+            'themes' => json_encode($validated['themes']),
+            'period' => $validated['period'],
+            'key_facts' => json_encode($validated['key_facts']),
+            'born_year' => $validated['born_year'],
+            'death_year' => $validated['death_year'],
+            'famous_works' => json_encode($validated['famous_works']),
+            'nationality' => $validated['nationality'],
             'user_id' => Auth::user()->id,
         ]);
 
-        return redirect()->route('authors.show', ['id' => $newAuthor->id]);
+        $newGenres = [];
+        foreach ($validated['genres'] as $genre) {
+            $newGenres[] = Genre::firstOrCreate(['name' => $genre, 'user_id' => Auth::user()->id])->id;
+        }
+
+        $newAuthor->genres()->sync($newGenres);
+
+        return redirect()->route('authors.index');
     }
 
     /**
@@ -57,7 +74,7 @@ class AuthorController extends Controller
      */
     public function show(Request $request)
     {
-        return Inertia::render('Authors/Author', ['author' => Author::findOrFail($request->route('id'))]);
+        return Inertia::render('Authors/Author', ['author' => Author::with('genres')->findOrFail($request->route('id'))]);
     }
 
     /**

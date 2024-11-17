@@ -20,4 +20,9 @@ class Author extends Model
     {
         return $this->hasMany(Text::class);
     }
+
+    public function genres()
+    {
+        return $this->belongsToMany(Genre::class);
+    }
 }

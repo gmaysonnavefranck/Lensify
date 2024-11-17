@@ -1,9 +1,9 @@
 <?php
 
 use App\Http\Controllers\AuthorController;
+use App\Http\Controllers\ChatController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TextController;
-use App\Http\Controllers\ChatController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -22,7 +22,7 @@ Route::middleware(['auth', 'verified'])->prefix('texts')->group(function () {
     Route::get('/', [TextController::class, 'index']);
     Route::get('{id}', [TextController::class, 'show'])->name('texts.show');
 
-    Route::post('/{text}/assign-author', [TextController::class, 'assignAuthor']);
+    Route::post('{text}/assign-author', [TextController::class, 'assignAuthor']);
 });
 
 Route::middleware(['auth', 'verified'])->prefix('authors')->group(function () {
@@ -31,15 +31,13 @@ Route::middleware(['auth', 'verified'])->prefix('authors')->group(function () {
     Route::get('{id}', [AuthorController::class, 'show'])->name('authors.show');
     Route::delete('{author}', [AuthorController::class, 'destroy'])->name('authors.destroy');
 
-    Route::post('/{author}/assign-texts', [AuthorController::class, 'assignTexts']);
+    Route::post('{author}/assign-texts', [AuthorController::class, 'assignTexts']);
+    Route::post('fetch-author', [AuthorController::class, 'getAuthorInformation']);
 });
-
 
 Route::prefix('chat')->group(function () {
-    Route::post('/analyze-text', [ChatController::class, 'analyzeText']);
+    Route::post('analyze-text', [ChatController::class, 'analyzeText']);
 });
-
-
 
 Route::get('quotes', function () {
     return Inertia::render('Quotes/Quotes');

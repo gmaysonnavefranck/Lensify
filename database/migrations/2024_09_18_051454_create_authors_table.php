@@ -13,9 +13,8 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->json('themes')->nullable();
-            $table->json('genres')->nullable();
             $table->json('famous_works')->nullable();
-            $table->json('key_facts')->nullable();  
+            $table->json('key_facts')->nullable();
             $table->string('period')->nullable();
             $table->string('born_year')->nullable();
             $table->string('death_year')->nullable();
