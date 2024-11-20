@@ -33,7 +33,7 @@
 
 <template>
   <div>
-    <label class="label" for="input-text">
+    <label v-if="label" class="label" for="input-text">
       {{ props.label }}
     </label>
     <input

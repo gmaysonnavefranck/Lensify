@@ -4,12 +4,14 @@
 
   interface SelectProps {
     modelValue: string;
-    options: string[];
+    options?: string[];
     multiple?: boolean;
-    label: string;
+    label?: string;
     placeholder: string;
-    isLoading: boolean;
+    isLoading?: boolean;
     taggable?: boolean;
+    trackBy?: string;
+    displayBy?: string;
   }
 
   const value = ref('');
@@ -35,7 +37,7 @@
 
 <template>
   <div>
-    <label class="label" for="input-text">
+    <label v-if="label" class="label" for="input-text">
       {{ label }}
     </label>
     <Multiselect
@@ -45,6 +47,8 @@
       :loading="isLoading"
       :placeholder="placeholder"
       :taggable="taggable"
+      :track-by="trackBy"
+      :label="displayBy"
       @update:modelValue="(value) => emit('update:modelValue', value)"
     ></Multiselect>
   </div>
