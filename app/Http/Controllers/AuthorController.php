@@ -16,13 +16,39 @@ class AuthorController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $query = Author::with('texts')
+            ->where('user_id', Auth::user()->id);
+
+        // Apply filters
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%' . $request->input('search') . '%');
+        }
+
+        if ($request->filled('genre')) {
+            $query->whereHas('genres', function ($q) use ($request) {
+                $q->where('genres.id', $request->input('genre'));
+            });
+        }
+
+        if ($request->filled('theme')) {
+            $query->whereHas('themes', function ($q) use ($request) {
+                $q->where('themes.id', $request->input('theme'));
+            });
+        }
+
+        if ($request->filled('period')) {
+            $query->whereHas('literaryPeriods', function ($q) use ($request) {
+                $q->where('literary_periods.id', $request->input('period'));
+            });
+        }
+
         return Inertia::render('Authors/Authors', [
-            'authors' => Author::with('texts')
-                ->where('user_id', Auth::user()->id)
-                ->orderBy('created_at', 'desc')
-                ->paginate(9),
+            'authors' => $query->orderBy('created_at', 'desc')->paginate(9),
+            'genres' => Genre::where('user_id', Auth::user()->id)->get(),
+            'themes' => Theme::where('user_id', Auth::user()->id)->get(),
+            'periods' => LiteraryPeriod::where('user_id', Auth::user()->id)->get(),
         ]);
     }
 

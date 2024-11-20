@@ -1,18 +1,22 @@
 <script setup lang="ts">
   import AuthLayout from '@/Layouts/AuthLayout.vue';
   import Button from '@/Components/Button.vue';
-  import Modal from '@/Components/Modal.vue';
-  import { Author } from '@/types/index';
-  import { ref } from 'vue';
-  import { Link } from '@inertiajs/vue3';
+  import Filter from '@/Components/Filter.vue';
   import Icon from '@/Components/Icon.vue';
   import InputText from '@/Components/InputText.vue';
-  import Select from '@/Components/Select.vue';
+  import Modal from '@/Components/Modal.vue';
   import Pagination from '@/Components/Pagination.vue';
+  import Select from '@/Components/Select.vue';
+  import { Author } from '@/types/index';
+  import { ref, watch } from 'vue';
+  import { Link } from '@inertiajs/vue3';
   import { router } from '@inertiajs/vue3';
 
   interface AuthorsPageProps {
     authors: Author[];
+    themes: string[];
+    genres: string[];
+    periods: string[];
   }
 
   defineProps<AuthorsPageProps>();
@@ -23,10 +27,33 @@
   const showAddAuthorModal = ref(false);
   const isLoading = ref(false);
   const isSavingAuthor = ref(false);
-  const genres = ref([]);
-  const themes = ref([]);
+  const newGenres = ref([]);
+  const newThemes = ref([]);
   const key_facts = ref([]);
   const famous_works = ref([]);
+  const filter = ref({
+    period: '',
+    genre: '',
+    theme: '',
+    search: '',
+  });
+
+  watch(
+    () => filter,
+    (newFilter) => {
+      router.get(
+        '/authors',
+        {
+          period: newFilter.value.period?.id,
+          theme: newFilter.value.theme?.id,
+          genre: newFilter.value.genre?.id,
+          search: newFilter.value.search,
+        },
+        { preserveState: true },
+      );
+    },
+    { deep: true },
+  );
 
   function getAuthorInitials(name: string) {
     return name.split(' ')[0][0] + (name.split(' ').length > 1 ? name.split(' ')[name.split(' ').length - 1][0] : '');
@@ -45,8 +72,8 @@
     const data = await response.data;
 
     newAuthor.value = { ...newAuthor.value, ...data };
-    genres.value = data.genres;
-    themes.value = data.themes;
+    newGenres.value = data.genres;
+    newThemes.value = data.themes;
     key_facts.value = data.key_facts;
     famous_works.value = data.famous_works;
 
@@ -78,8 +105,44 @@
             <h1 class="text-4xl font-bold text-textPrimary">Your Authors</h1>
             <span class="text-base font-normal text-secondary">Authors you've added to your collection</span>
           </div>
-          <Button text="Add Author" type="primary" @click="showAddAuthorModal = true" />
+          <Button text="Add Author" type="primary" @click="showAddAuthorModal = true">
+            <div class="flex items-center gap-2 p-1">
+              <Icon icon="plus" class="h-5 w-5 text-textLight" />
+              <span> Add Author </span>
+            </div>
+          </Button>
         </div>
+        <Filter @update:search="(search) => (filter.search = search)">
+          <div class="flex gap-2">
+            <Select
+              class="w-1/3"
+              label="Literary Period"
+              placeholder="Any Period"
+              v-model="filter.period"
+              :options="periods"
+              track-by="name"
+              display-by="name"
+            />
+            <Select
+              class="w-1/3"
+              label="Genre"
+              placeholder="Any Genre"
+              v-model="filter.genre"
+              :options="genres"
+              track-by="name"
+              display-by="name"
+            />
+            <Select
+              class="w-1/3"
+              label="Theme"
+              placeholder="Any Theme"
+              v-model="filter.theme"
+              :options="themes"
+              track-by="name"
+              display-by="name"
+            />
+          </div>
+        </Filter>
         <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
           <div
             v-for="author in authors.data"
@@ -188,8 +251,22 @@
             label="Literary Period"
           />
           <p class="col-span-2 text-sm font-semibold text-gray-500">Literary Profile</p>
-          <Select v-model="newAuthor.genres" placeholder="Genres" label="Genres" multiple taggable :options="genres" />
-          <Select v-model="newAuthor.themes" placeholder="Themes" label="Themes" multiple taggable :options="themes" />
+          <Select
+            v-model="newAuthor.genres"
+            placeholder="Genres"
+            label="Genres"
+            multiple
+            taggable
+            :options="newGenres"
+          />
+          <Select
+            v-model="newAuthor.themes"
+            placeholder="Themes"
+            label="Themes"
+            multiple
+            taggable
+            :options="newThemes"
+          />
           <Select
             class="col-span-2"
             v-model="newAuthor.famous_works"
