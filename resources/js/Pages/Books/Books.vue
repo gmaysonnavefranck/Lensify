@@ -1,9 +1,10 @@
 <script setup lang="ts">
   import AuthLayout from '@/Layouts/AuthLayout.vue';
+
+  defineOptions({ layout: AuthLayout });
 </script>
 
 <template>
-  <AuthLayout>
-    <h1>Books</h1>
-  </AuthLayout>
+  <Head title="Books" />
+  <h1>Books</h1>
 </template>

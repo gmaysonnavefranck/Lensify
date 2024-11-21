@@ -9,7 +9,7 @@
     icon: string;
   }
 
-  const props = defineProps<NavLinkProps>();
+  defineProps<NavLinkProps>();
 </script>
 
 <template>

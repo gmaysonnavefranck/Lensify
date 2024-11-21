@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { Head, usePage } from '@inertiajs/vue3';
+  import { usePage } from '@inertiajs/vue3';
   import NavLink from '@/Components/NavLink.vue';
 
   const page = usePage();
