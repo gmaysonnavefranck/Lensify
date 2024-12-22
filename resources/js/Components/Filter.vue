@@ -1,11 +1,7 @@
 <template>
   <div class="mb-6 rounded-lg border border-gray-200 bg-white p-4">
     <div class="flex items-center gap-4">
-      <InputText
-        @update:modelValue="(search) => emit('update:search', search)"
-        class="flex-grow self-center"
-        :placeholder="searchPlaceholder"
-      />
+      <InputText v-model="internalSearch" class="flex-grow self-center" :placeholder="searchPlaceholder" />
       <Button class="self-end" type="outline" @click="isFiltersOpen = !isFiltersOpen">
         <div class="flex items-center gap-2 px-1 py-0.5">
           <Icon icon="filter" class="h-5 w-5 text-gray-600" />
@@ -30,17 +26,33 @@
   import Button from '@/Components/Button.vue';
   import Icon from '@/Components/Icon.vue';
   import InputText from './InputText.vue';
-  import { ref } from 'vue';
+  import { ref, watch } from 'vue';
 
   interface FilterProps {
     searchPlaceholder?: string;
+    modelValue?: string;
   }
 
-  withDefaults(defineProps<FilterProps>(), {
+  const props = withDefaults(defineProps<FilterProps>(), {
     searchPlaceholder: 'Search...',
+    modelValue: '',
   });
 
-  const emit = defineEmits<{ (e: 'update:search', value: string): void }>();
+  const emit = defineEmits<{ (e: 'update:modelValue', value: string): void }>();
+
+  const internalSearch = ref(props.modelValue);
+
+  watch(
+    () => props.modelValue,
+    (newValue) => {
+      internalSearch.value = newValue;
+    },
+  );
+
+  // Emit changes when `internalSearch` is updated
+  watch(internalSearch, (newValue) => {
+    emit('update:modelValue', newValue);
+  });
 
   const isFiltersOpen = ref(false);
 </script>

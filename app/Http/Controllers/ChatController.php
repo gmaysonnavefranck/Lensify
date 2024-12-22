@@ -37,7 +37,7 @@ class ChatController extends Controller
     public function analyzeText(Request $request)
     {
         $text = $request->input('text');
-        $prompt = 'Create a foot note based on this piece of text: ' . $text . ' Please, return the response as a JSON object with footNote as its key.';
+        $prompt = 'Create a foot note based on this piece of text: ' . $text . ' Please, return the response as a JSON object with footNote as its key and in portuguese.';
 
         return response()->json($this->chat($prompt));
     }

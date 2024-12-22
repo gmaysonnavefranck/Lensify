@@ -16,6 +16,8 @@
 
   const props = defineProps<textProps>();
 
+  defineOptions({ layout: AuthLayout });
+
   onMounted(() => {
     document.addEventListener('mouseup', function () {
       if (window.getSelection().toString().length > 0) {
@@ -43,9 +45,9 @@
 </script>
 
 <template>
-  <AuthLayout>
-    <div class="flex h-full">
-      <div class="h-full w-1/2">
+  <div class="flex h-full w-full">
+    <div class="flex h-full w-1/2 justify-center">
+      <div class="">
         <p class="mb-4 text-center text-xl font-semibold">{{ text.title }}</p>
         <div class="text-box">
           <span class="whitespace-pre">
@@ -53,41 +55,41 @@
           </span>
         </div>
       </div>
-      <hr class="mx-6 h-full w-1 bg-[#f1f1f1]" />
-      <div class="w-1/2">
-        <div>
-          <p>Author</p>
-          <div v-if="text?.author">
-            {{ text?.author || '-' }}
-          </div>
-          <div v-else>
-            <button class="my-2 border px-3 py-1" @click="associateAuthor">Associate author</button>
-            <Link :href="`/texts/${text.id}/assign-author`" as="button" method="post" :data="{ author_id: 1 }"
-              >Create Text</Link
-            >
-          </div>
+    </div>
+    <hr class="mx-6 h-full w-1 bg-[#f1f1f1]" />
+    <div class="w-1/2">
+      <div>
+        <p>Author</p>
+        <div v-if="text?.author">
+          {{ text?.author || '-' }}
         </div>
-        <hr class="my-6 h-px w-full bg-slate-400" />
-        <div>
-          <p>selected text:</p>
-          <p class="whitespace-pre">
-            {{ selectedText }}
-          </p>
-          <button class="my-2 border px-3 py-1" @click="generateExplanation">Generate explanation</button>
-          <p class="text-sm">
-            {{ generatedText }}
-          </p>
-        </div>
-        <hr class="my-6 h-px w-full bg-slate-400" />
-        <div>
-          <p>Foot notes</p>
-          <p class="text-sm">
-            {{ text?.footNotes }}
-          </p>
+        <div v-else>
+          <button class="my-2 border px-3 py-1" @click="associateAuthor">Associate author</button>
+          <Link :href="`/texts/${text.id}/assign-author`" as="button" method="post" :data="{ author_id: 1 }"
+            >Create Text</Link
+          >
         </div>
       </div>
+      <hr class="my-6 h-px w-full bg-slate-400" />
+      <div>
+        <p>selected text:</p>
+        <p class="">
+          {{ selectedText }}
+        </p>
+        <button class="my-2 border px-3 py-1" @click="generateExplanation">Generate explanation</button>
+        <p class="text-sm">
+          {{ generatedText }}
+        </p>
+      </div>
+      <hr class="my-6 h-px w-full bg-slate-400" />
+      <div>
+        <p>Foot notes</p>
+        <p class="text-sm">
+          {{ text?.footNotes }}
+        </p>
+      </div>
     </div>
-  </AuthLayout>
+  </div>
 </template>
 
 <style scoped>

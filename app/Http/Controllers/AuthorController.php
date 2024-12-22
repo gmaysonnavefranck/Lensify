@@ -18,37 +18,52 @@ class AuthorController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Author::with('texts')
-            ->where('user_id', Auth::user()->id);
-
-        // Apply filters
-        if ($request->filled('search')) {
-            $query->where('name', 'like', '%' . $request->input('search') . '%');
-        }
-
-        if ($request->filled('genre')) {
-            $query->whereHas('genres', function ($q) use ($request) {
-                $q->where('genres.id', $request->input('genre'));
-            });
-        }
-
-        if ($request->filled('theme')) {
-            $query->whereHas('themes', function ($q) use ($request) {
-                $q->where('themes.id', $request->input('theme'));
-            });
-        }
-
-        if ($request->filled('period')) {
-            $query->whereHas('literaryPeriods', function ($q) use ($request) {
-                $q->where('literary_periods.id', $request->input('period'));
-            });
-        }
-
         return Inertia::render('Authors/Authors', [
-            'authors' => $query->orderBy('created_at', 'desc')->paginate(9),
-            'genres' => Genre::where('user_id', Auth::user()->id)->get(),
-            'themes' => Theme::where('user_id', Auth::user()->id)->get(),
-            'periods' => LiteraryPeriod::where('user_id', Auth::user()->id)->get(),
+            'authors' => Author::query()
+                ->where('user_id', Auth::user()->id)
+                ->when($request->input('search'), function ($query, $search) {
+                    $query->where('name', 'like', "%{$search}%");
+                })
+                ->when($request->input('genre'), function ($query, $genre) {
+                    $query->whereHas('genres', function ($q) use ($genre) {
+                        $q->where('genres.id', $genre);
+                    });
+                })
+                ->when($request->input('period'), function ($query, $period) {
+                    $query->whereHas('literaryPeriods', function ($q) use ($period) {
+                        $q->where('literary_periods.id', $period);
+                    });
+                })
+                ->with('texts')
+                ->orderBy('created_at', 'desc')
+                ->paginate(9)
+                ->through(function ($author) {
+                    return [
+                        'id' => $author->id,
+                        'name' => $author->name,
+                        'key_facts' => json_decode($author->key_facts),
+                        'born_year' => $author->born_year,
+                        'death_year' => $author->death_year,
+                        'famous_works' => json_decode($author->famous_works),
+                        'nationality' => $author->nationality,
+                        'genres' => $author->genres->map(function ($genre) {
+                            return ['id' => $genre->id, 'name' => $genre->name];
+                        }),
+                        'themes' => $author->themes->map(function ($theme) {
+                            return ['id' => $theme->id, 'name' => $theme->name];
+                        }),
+                        'literary_periods' => $author->literaryPeriods->map(function ($period) {
+                            return ['id' => $period->id, 'name' => $period->name];
+                        }),
+                    ];
+                }),
+            'genres' => Genre::where('user_id', Auth::user()->id)->get()->map(function ($genre) {
+                return ['id' => $genre->id, 'name' => $genre->name];
+            }),
+            'periods' => LiteraryPeriod::where('user_id', Auth::user()->id)->get()->map(function ($period) {
+                return ['id' => $period->id, 'name' => $period->name];
+            }),
+            'filters' => $request->only(['search', 'genre', 'period']),
         ]);
     }
 

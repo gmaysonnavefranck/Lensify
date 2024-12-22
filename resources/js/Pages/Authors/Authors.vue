@@ -7,19 +7,23 @@
   import Modal from '@/Components/Modal.vue';
   import Pagination from '@/Components/Pagination.vue';
   import Select from '@/Components/Select.vue';
-  import { Author } from '@/types/index';
-  import { ref, watch } from 'vue';
+  import { Author, PaginatedResponse, Genre, Period } from '@/types/index';
+  import { onMounted, ref, watch } from 'vue';
   import { Link } from '@inertiajs/vue3';
   import { router } from '@inertiajs/vue3';
 
   interface AuthorsPageProps {
-    authors: Author[];
-    themes: string[];
-    genres: string[];
-    periods: string[];
+    authors: PaginatedResponse<Author>;
+    genres: Genre[];
+    periods: Period[];
+    filters: {
+      period: string;
+      genre: string;
+      search: string;
+    };
   }
 
-  defineProps<AuthorsPageProps>();
+  const props = defineProps<AuthorsPageProps>();
 
   defineOptions({ layout: AuthLayout });
 
@@ -33,11 +37,23 @@
   const newThemes = ref([]);
   const key_facts = ref([]);
   const famous_works = ref([]);
-  const filter = ref({
-    period: '',
-    genre: '',
-    theme: '',
-    search: '',
+  const filter = ref<{
+    period: Period | null;
+    genre: Genre | null;
+    search: string;
+  }>({
+    period: null,
+    genre: null,
+    search: props.filters?.search || '',
+  });
+
+  onMounted(() => {
+    filter.value.period = props.filters.period
+      ? props.periods.find((p) => p.id === Number(props.filters.period)) || null
+      : null;
+    filter.value.genre = props.filters.genre
+      ? props.genres.find((g) => g.id === Number(props.filters.genre)) || null
+      : null;
   });
 
   watch(
@@ -46,20 +62,15 @@
       router.get(
         '/authors',
         {
-          period: newFilter.value.period?.id,
-          theme: newFilter.value.theme?.id,
-          genre: newFilter.value.genre?.id,
+          period: newFilter.value?.period?.id,
+          genre: newFilter.value?.genre?.id,
           search: newFilter.value.search,
         },
-        { preserveState: true },
+        { preserveState: true, replace: true },
       );
     },
     { deep: true },
   );
-
-  function getAuthorInitials(name: string) {
-    return name.split(' ')[0][0] + (name.split(' ').length > 1 ? name.split(' ')[name.split(' ').length - 1][0] : '');
-  }
 
   async function findAuthorInformation() {
     if (!newAuthor.value.name) return;
@@ -84,9 +95,18 @@
   }
 
   async function createAuthor() {
-    const response = await axios.post('/authors', {
+    const response = await router.post('/authors', {
       ...newAuthor.value,
     });
+    isSavingAuthor.value = false;
+    showAddAuthorModal.value = false;
+    newAuthor.value = {
+      name: '',
+    };
+  }
+
+  function getAuthorInitials(name: string) {
+    return name.split(' ')[0][0] + (name.split(' ').length > 1 ? name.split(' ')[name.split(' ').length - 1][0] : '');
   }
 
   function closeCreateAuthorModal() {
@@ -114,10 +134,10 @@
           </div>
         </Button>
       </div>
-      <Filter @update:search="(search) => (filter.search = search)">
-        <div class="flex gap-2">
+      <Filter @update:model-value="(search: string) => (filter.search = search)" v-model="filters.search">
+        <div class="flex gap-6">
           <Select
-            class="w-1/3"
+            class="w-1/2"
             label="Literary Period"
             placeholder="Any Period"
             v-model="filter.period"
@@ -126,20 +146,11 @@
             display-by="name"
           />
           <Select
-            class="w-1/3"
+            class="w-1/2"
             label="Genre"
             placeholder="Any Genre"
             v-model="filter.genre"
             :options="genres"
-            track-by="name"
-            display-by="name"
-          />
-          <Select
-            class="w-1/3"
-            label="Theme"
-            placeholder="Any Theme"
-            v-model="filter.theme"
-            :options="themes"
             track-by="name"
             display-by="name"
           />
@@ -181,14 +192,14 @@
                     <Icon icon="texts" class="h-4 w-4 text-textPrimary" />
                     {{ author?.texts?.length }}
                   </p>
-                  <p class="text-sm text-secondary">texts</p>
+                  <p class="text-sm text-secondary">Texts</p>
                 </div>
                 <div class="text-center">
                   <p class="flex gap-2 text-sm font-semibold text-textPrimary">
                     <Icon icon="texts" class="h-4 w-4 text-textPrimary" />
                     {{ author?.texts?.length }}
                   </p>
-                  <p class="text-sm text-secondary">texts</p>
+                  <p class="text-sm text-secondary">Quotes</p>
                 </div>
               </div>
             </div>
@@ -201,7 +212,19 @@
       :per_page="authors.per_page"
       :total="authors.total"
       :last_page="authors.last_page"
-      @update:current_page="(newPage) => router.get('/authors', { page: newPage }, { preserveState: true })"
+      @update:current_page="
+        (newPage) =>
+          router.get(
+            '/authors',
+            {
+              page: newPage,
+              period: filter.period?.id,
+              genre: filter.genre?.id,
+              search: filter.search,
+            },
+            { preserveState: true },
+          )
+      "
       entity="authors"
     />
   </div>

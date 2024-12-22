@@ -18,6 +18,6 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::dropIfExists('author_literar_period');
+        Schema::dropIfExists('author_literary_period');
     }
 };
