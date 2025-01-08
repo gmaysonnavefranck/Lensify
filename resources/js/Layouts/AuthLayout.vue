@@ -12,7 +12,7 @@
 <template>
   <Head title="Home" />
   <div class="flex min-h-screen flex-col">
-    <header class="flex select-none items-center justify-between border-b-2 border-gray-200 px-3 py-6">
+    <header class="flex h-[72px] items-center justify-between border-b-2 border-gray-200 px-3">
       <div class="flex items-center">
         <span class="ml-5 font-playfair text-3xl italic text-primary">Lensify</span>
       </div>
@@ -26,8 +26,8 @@
         <img src="../Assets/blankProfile.png" alt="user photo" class="h-10 w-10 rounded-full bg-slate-700" />
       </div>
     </header>
-    <main class="flex flex-grow justify-center p-10">
-      <div class="flex max-w-5xl flex-grow">
+    <main class="flex max-h-[calc(100vh-72px)] flex-1 flex-grow justify-center p-10">
+      <div class="w-full max-w-5xl">
         <slot />
       </div>
     </main>

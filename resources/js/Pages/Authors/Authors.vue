@@ -120,7 +120,7 @@
 
 <template>
   <Head title="Authors" />
-  <div class="flex flex-grow flex-col justify-between">
+  <div class="flex h-full flex-col">
     <div>
       <div class="mb-6 flex w-full items-center justify-between">
         <div>
@@ -156,7 +156,9 @@
           />
         </div>
       </Filter>
-      <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+    </div>
+    <div class="flex-grow overflow-y-auto">
+      <div class="grid min-h-[300px] w-full grid-cols-1 gap-6 md:grid-cols-3">
         <div
           v-for="author in authors.data"
           :key="author.id"
