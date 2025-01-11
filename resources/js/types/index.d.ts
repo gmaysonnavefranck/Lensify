@@ -34,11 +34,11 @@ export interface ResultsResponse<T> {
 }
 
 export type Author = {
-  id?: number;
+  id: number;
   name: string;
-  born_year?: string;
+  born_year: string;
   death_year?: string;
-  nationality?: string;
+  nationality: string;
   famous_works?: string[];
   key_facts?: string[];
   period?: Period[];

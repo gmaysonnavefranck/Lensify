@@ -1,9 +1,9 @@
 <script setup lang="ts">
-  import { nextTick, onMounted, ref, watch } from 'vue';
+  import { nextTick, onMounted, ref } from 'vue';
 
   interface InputTextProps {
     placeholder?: string;
-    modelValue?: string | number | null;
+    modelValue?: any;
     disabled?: boolean;
     maxlength?: number;
     label?: string;

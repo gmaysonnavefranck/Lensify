@@ -46,14 +46,14 @@ class ChatController extends Controller
     {
         $name = $request->input('name');
         $prompt = "You are a literary expert, generate a JSON object with the following keys for the literary author {$name}:
-            themes: Common themes in their works.
-            genres: Genres they worked in.
-            period: Literary period they belong to.
-            key_facts: Key facts and major life events.
+            themes: Common themes in the author works.
+            genres: Genres the author worked in.
+            period: Literary movement the author belongs to.
+            key_facts: Major life events that contributed for the style and themes of the author.
             born_year: Year of birth.
             death_year: Year of death (if applicable).
             famous_works: Top 3 famous works.
-            nationality: Their nationality.
+            nationality: the author nationality.
             only fields with plural keys should be arrays and the dates can be strings if needed to.
             success: If you can't find the author return false here, otherwise return true.";
 

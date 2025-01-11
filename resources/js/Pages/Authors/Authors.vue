@@ -27,7 +27,7 @@
 
   defineOptions({ layout: AuthLayout });
 
-  const newAuthor = ref<Author>({
+  const newAuthor = ref<Partial<Author>>({
     name: '',
   });
   const showAddAuthorModal = ref(false);
@@ -105,10 +105,6 @@
     };
   }
 
-  function getAuthorInitials(name: string) {
-    return name.split(' ')[0][0] + (name.split(' ').length > 1 ? name.split(' ')[name.split(' ').length - 1][0] : '');
-  }
-
   function closeCreateAuthorModal() {
     showAddAuthorModal.value = false;
     newAuthor.value = {
@@ -158,14 +154,14 @@
       </Filter>
     </div>
     <div class="flex-grow overflow-y-auto">
-      <div class="grid min-h-[300px] w-full grid-cols-1 gap-6 md:grid-cols-3">
+      <div class="grid w-full grid-cols-1 gap-6 md:grid-cols-3">
         <div
           v-for="author in authors.data"
           :key="author.id"
           class="cursor-pointer overflow-hidden rounded-lg border border-gray-200 hover:shadow-md"
         >
           <Link :href="'/authors/' + author.id">
-            <div class="card-background relative flex h-32 w-full items-center justify-center overflow-hidden">
+            <div class="card-background relative flex h-28 w-full items-center justify-center overflow-hidden">
               <div
                 class="absolute inset-0 opacity-15"
                 :style="{
@@ -174,34 +170,29 @@
                 }"
               />
               <span
-                class="relative z-10 font-playfair text-5xl font-semibold uppercase text-textLight"
+                class="relative z-10 text-center font-playfair text-3xl font-semibold capitalize text-textLight"
                 :style="{ textShadow: '0 2px 4px rgba(0,0,0,0.2)' }"
               >
-                {{ getAuthorInitials(author.name) }}
+                {{ author.name }}
               </span>
             </div>
-            <div class="p-6">
-              <p class="mb-1 text-center text-lg font-medium capitalize leading-tight text-textPrimary">
-                {{ author?.name }}
-              </p>
+            <div class="p-5">
               <p class="text-center text-sm tracking-wider text-textSecondary">
-                {{ author?.born_year }}{{ author?.death_year && `-${author.death_year}` }}
+                {{ author.nationality }} ({{ author?.born_year }}{{ author?.death_year && `-${author.death_year}` }})
               </p>
               <div class="my-4 h-px w-full bg-gray-100" />
-              <div class="flex items-center justify-center gap-2">
-                <div class="text-center">
-                  <p class="flex gap-2 text-sm font-semibold text-textPrimary">
-                    <Icon icon="texts" class="h-4 w-4 text-textPrimary" />
-                    {{ author?.texts?.length }}
-                  </p>
-                  <p class="text-sm text-secondary">Texts</p>
+              <div class="flex items-center justify-around text-xs text-secondary">
+                <div class="flex flex-col">
+                  <p class="text-center font-semibold">{{ author.texts?.length || 0 }}</p>
+                  <p class="text-sm">Texts</p>
                 </div>
-                <div class="text-center">
-                  <p class="flex gap-2 text-sm font-semibold text-textPrimary">
-                    <Icon icon="texts" class="h-4 w-4 text-textPrimary" />
-                    {{ author?.texts?.length }}
-                  </p>
-                  <p class="text-sm text-secondary">Quotes</p>
+                <div class="flex flex-col">
+                  <p class="text-center font-semibold">{{ author.texts?.length || 0 }}</p>
+                  <p class="text-sm">Quotes</p>
+                </div>
+                <div class="flex flex-col">
+                  <p class="text-center font-semibold">{{ author.texts?.length || 0 }}</p>
+                  <p class="text-sm">Books</p>
                 </div>
               </div>
             </div>
@@ -297,6 +288,7 @@
           multiple
           taggable
           :options="key_facts"
+          :open-direction="'above'"
         />
       </div>
       <hr />

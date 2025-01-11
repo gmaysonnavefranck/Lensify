@@ -3,8 +3,8 @@
   import Multiselect from 'vue-multiselect';
 
   interface SelectProps {
-    modelValue: string;
-    options?: string[];
+    modelValue: any;
+    options?: any[];
     multiple?: boolean;
     label?: string;
     placeholder: string;
@@ -12,6 +12,7 @@
     taggable?: boolean;
     trackBy?: string;
     displayBy?: string;
+    openDirection?: string;
   }
 
   const value = ref('');
@@ -20,6 +21,7 @@
     placeholder: 'Select an option',
     isLoading: false,
     taggable: false,
+    openDirection: 'bottom',
   });
   const emit = defineEmits<{ (e: 'update:modelValue', value: string): void }>();
 
@@ -49,6 +51,7 @@
       :taggable="taggable"
       :track-by="trackBy"
       :label="displayBy"
+      :open-direction="openDirection"
       @update:modelValue="(value) => emit('update:modelValue', value)"
     ></Multiselect>
   </div>
