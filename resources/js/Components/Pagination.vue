@@ -35,7 +35,9 @@
         :type="page === current_page ? 'primary' : 'ghost'"
         @click="emit('update:current_page', page)"
       >
-        {{ page }}
+        <span :class="page === current_page ? '' : '!text-textPrimary'">
+          {{ page }}
+        </span>
       </Button>
       <Button
         type="ghost"

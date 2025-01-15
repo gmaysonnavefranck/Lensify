@@ -26,8 +26,9 @@
         <img src="../Assets/blankProfile.png" alt="user photo" class="h-10 w-10 rounded-full bg-slate-700" />
       </div>
     </header>
-    <main class="flex max-h-[calc(100vh-72px)] flex-1 flex-grow justify-center p-10">
-      <div class="w-full max-w-5xl">
+
+    <main class="flex max-h-[calc(100vh-72px)] flex-1 flex-grow justify-center">
+      <div class="w-full">
         <slot />
       </div>
     </main>
