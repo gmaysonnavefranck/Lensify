@@ -23,6 +23,9 @@ class TextFactory extends Factory
             'author_id' => fake()->boolean(70) ? Author::factory() : null,
             'title' => fake()->sentence(),
             'content' => fake()->paragraph(),
+            'year' => fake()->year(),
+            'language' => fake()->randomElement(['English', 'Spanish', 'Italian']),
+            'type' => fake()->randomElement(['poem', 'novel', 'short story', 'essay']),
         ];
     }
 }

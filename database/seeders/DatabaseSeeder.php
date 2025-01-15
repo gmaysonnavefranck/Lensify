@@ -19,7 +19,8 @@ class DatabaseSeeder extends Seeder
         $user = User::factory()
             ->create([
                 'name' => 'Test User',
-                'email' => 'test@example.com',
+                'email' => 'test@gmail.com',
+                'password' => bcrypt('Test@123'),
             ]);
 
         $authors = Author::factory()->count(5)->create([
@@ -36,6 +37,14 @@ class DatabaseSeeder extends Seeder
         // For each text, create a few notes, using the actual text content
         foreach ($texts as $text) {
             TextNote::factory()->count(1)->forText($text)->create();
+        }
+
+        foreach ($texts as $text) {
+            Text::factory()->count(3)->create([
+                'user_id' => $text->user_id,
+                'translation_for' => $text->id,
+                'language' => fake()->randomElement(['French', 'Portuguese', 'Deutsch']),
+            ]);
         }
     }
 }

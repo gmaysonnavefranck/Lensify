@@ -48,10 +48,16 @@ export type Author = {
 };
 
 export type Text = {
-  id?: number;
+  id: number;
   title: string;
   content: string;
   author?: Author;
+  year?: string;
+  language?: string;
+  type?: string;
+  translations?: Text[];
+  translation_for?: number;
+  text_notes?: FootNotes[];
 };
 
 export type Genre = {

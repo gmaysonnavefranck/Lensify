@@ -13,9 +13,13 @@ return new class extends Migration
         Schema::create('texts', function (Blueprint $table) {
             $table->id();
             $table->string('title');
+            $table->string('type')->nullable();
+            $table->string('language')->nullable();
+            $table->string('year')->nullable();
             $table->longText('content');
             $table->foreignIdFor(User::class);
             $table->foreignIdFor(Author::class)->nullable()->constrained();
+            $table->foreignId('translation_for')->nullable()->constrained('texts')->cascadeOnDelete();
             $table->timestamps();
         });
     }

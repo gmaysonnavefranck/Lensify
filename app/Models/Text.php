@@ -25,4 +25,14 @@ class Text extends Model
     {
         return $this->hasMany(TextNote::class);
     }
+
+    public function parentText()
+    {
+        return $this->belongsTo(Text::class, 'translation_for');
+    }
+
+    public function translations()
+    {
+        return $this->hasMany(Text::class, 'translation_for');
+    }
 }
