@@ -15,8 +15,8 @@ return new class extends Migration
             $table->integer('start_position');
             $table->integer('end_position');
             $table->boolean('is_ai_generated');
-            $table->string('note');
-            $table->string('text_content');
+            $table->longText('note');
+            $table->longText('text_content');
             $table->timestamps();
         });
     }

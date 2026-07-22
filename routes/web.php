@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthorController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TextController;
+use App\Http\Controllers\TextNoteController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -23,6 +24,8 @@ Route::middleware(['auth', 'verified'])->prefix('texts')->group(function () {
     Route::get('{id}', [TextController::class, 'show'])->name('texts.show');
 
     Route::post('{text}/assign-author', [TextController::class, 'assignAuthor']);
+    Route::post('{text}/footnote', [TextController::class, 'associateFootnote']);
+    Route::post('fetch-text', [TextController::class, 'getTextInformation']);
 });
 
 Route::middleware(['auth', 'verified'])->prefix('authors')->group(function () {

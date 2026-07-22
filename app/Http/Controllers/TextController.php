@@ -13,9 +13,39 @@ class TextController extends Controller
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function index(Request $request)
     {
-        return Inertia::render('Texts/Texts', ['texts' => Text::with('author')->get(), 'authors' => Author::all()]);
+        return Inertia::render('Texts/Texts', [
+            'texts' => Text::query()
+                ->where('user_id', Auth::user()->id)
+                ->where('translation_for', null)
+                ->when($request->input('search'), function ($query, $search) {
+                    $query->where('title', 'like', "%{$search}%");
+                })
+                ->when($request->input('author'), function ($query, $author) {
+                    $query->whereHas('author', function ($q) use ($author) {
+                        $q->where('authors.id', $author);
+                    });
+                })
+                ->orderBy('created_at', 'desc')
+                ->paginate(9)
+                ->through(function ($text) {
+                    return [
+                        'id' => $text->id,
+                        'title' => $text->title,
+                        'year' => $text->year,
+                        'author' => $text->author ? ['id' => $text->author->id, 'name' => $text->author->name] : null,
+                        'text_notes' => sizeof($text->textNotes),
+                        'type' => $text->type,
+                        'language' => $text->language,
+                        'content' => mb_substr($text->content, 0, 120),
+                    ];
+                }),
+            'authors' => Author::where('user_id', Auth::user()->id)->get()->map(function ($author) {
+                return ['id' => $author->id, 'name' => $author->name];
+            }),
+            'filters' => $request->only(['search', 'author']),
+        ]);
     }
 
     /**
@@ -34,6 +64,9 @@ class TextController extends Controller
         $newText = Text::create([
             'title' => $validated['title'],
             'content' => $validated['content'],
+            'year' => $request->input('year'),
+            'type' => $request->input('type'),
+            'language' => $request->input('language'),
             'author_id' => $validated['author_id'],
             'user_id' => \Illuminate\Support\Facades\Auth::user()->id,
         ]);
@@ -46,7 +79,11 @@ class TextController extends Controller
      */
     public function show(Request $request)
     {
-        return Inertia::render('Texts/Text', ['text' => Text::with('author')->with('textNotes')->findOrFail($request->route('id'))]);
+        return Inertia::render('Texts/Text', [
+            'text' => Text::with(['author', 'textNotes'])
+                ->with(['translations:id,translation_for,language'])
+                ->findOrFail($request->route('id'))
+        ]);
     }
 
     /**
@@ -65,30 +102,59 @@ class TextController extends Controller
         //
     }
 
+    public function getTextInformation(Request $request)
+    {
+        $chatController = new ChatController;
+
+        return $chatController->findTextInformation($request);
+    }
+
     public function assignAuthor(Request $request, Text $text)
     {
         // Ensure the text belongs to the currently authenticated user
         if ($text->user_id !== Auth::id()) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
-    
+
         // Validate the request to ensure author_id is an integer and exists in the database
         $validated = $request->validate([
             'author_id' => 'required|integer|exists:authors,id',
         ]);
-    
+
         // Fetch the author using first() to retrieve a single instance
         $author = Author::where('id', $validated['author_id'])->first();
-    
+
         // Check if the author exists (good practice, although it's validated already)
         if (!$author) {
             return response()->json(['error' => 'Author not found'], 404);
         }
-    
+
         // Associate the text with the author and save it
         $text->author()->associate($author);
         $text->save();
-    
+
+        return response()->json(['text' => Text::with('author')->with('textNotes')->findOrFail($text->id)]);
+    }
+
+    public function associateFootnote(Request $request, Text $text)
+    {
+        // Ensure the text belongs to the authenticated user
+        if ($text->user_id !== Auth::id()) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+
+        // Validate request
+        $validated = $request->validate([
+            'note' => 'required|string',
+            'start_position' => 'required|integer|min:0',
+            'end_position' => 'required|integer|min:0|gte:start_position',
+            'is_ai_generated' => 'required|boolean',
+            'text_content' => 'required|string',
+        ]);
+
+        // Create the footnote
+        $text->textNotes()->create($validated);
+
         return response()->json(['text' => Text::with('author')->with('textNotes')->findOrFail($text->id)]);
     }
 }
