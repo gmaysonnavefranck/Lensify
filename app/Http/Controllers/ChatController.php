@@ -13,7 +13,7 @@ class ChatController extends Controller
     {
 
         $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . '***REMOVED***',
+            'Authorization' => 'Bearer ' . config('services.openai.key'),
         ])->post('https://api.openai.com/v1/chat/completions', [
             'model' => 'gpt-4-turbo',
             'temperature' => 0.0,
