@@ -66,35 +66,28 @@
 
 <template>
   <Head title="Authors" />
-  <div class="flex h-full w-full max-w-5xl flex-col place-self-center p-10">
-    <div>
-      <div class="mb-6 flex w-full items-center justify-between">
+  <div class="h-full overflow-y-auto">
+    <div class="mx-auto w-full max-w-6xl px-8 py-8">
+      <div class="mb-6 flex items-end justify-between">
         <div>
-          <h1 class="text-4xl font-bold text-textPrimary">Your Authors</h1>
-          <span class="text-base font-normal text-secondary">Authors you've added to your collection</span>
+          <h1 class="text-2xl font-semibold text-textPrimary">Your Authors</h1>
+          <p class="mt-1 text-sm text-secondary">Authors you've added to your collection</p>
         </div>
-        <Button text="Add Author" type="primary" @click="showAddAuthorModal = true">
-          <div class="flex items-center gap-2 p-1">
-            <Icon icon="plus" class="h-5 w-5 text-textLight" />
-            <span> Add Author </span>
-          </div>
-        </Button>
+        <Button type="primary" icon="plus" text="Add Author" @click="showAddAuthorModal = true" />
       </div>
       <Filter @update:model-value="(search: string) => (filter.search = search)" v-model="filters.search">
-        <div class="flex gap-6">
+        <div class="grid gap-4 sm:grid-cols-2">
           <Select
-            class="w-1/2"
             label="Literary Period"
-            placeholder="Any Period"
+            placeholder="Any period"
             v-model="filter.period"
             :options="periods"
             track-by="name"
             display-by="name"
           />
           <Select
-            class="w-1/2"
             label="Genre"
-            placeholder="Any Genre"
+            placeholder="Any genre"
             v-model="filter.genre"
             :options="genres"
             track-by="name"
@@ -102,74 +95,66 @@
           />
         </div>
       </Filter>
-    </div>
-    <div class="flex-grow overflow-y-auto">
-      <div class="grid w-full grid-cols-1 gap-6 md:grid-cols-3">
-        <div
+
+      <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <Link
           v-for="author in authors.data"
           :key="author.id"
-          class="cursor-pointer overflow-hidden rounded-lg border border-gray-200 hover:shadow-md"
+          :href="'/authors/' + author.id"
+          class="overflow-hidden rounded-lg border border-gray-200 bg-white transition-shadow hover:shadow-md"
         >
-          <Link :href="'/authors/' + author.id">
-            <div class="card-background relative flex h-28 w-full items-center justify-center overflow-hidden">
-              <div
-                class="absolute inset-0 opacity-15"
-                :style="{
-                  backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
-                  backgroundSize: '24px 24px',
-                }"
-              />
-              <span
-                class="relative z-10 text-center font-playfair text-3xl font-semibold capitalize text-textLight"
-                :style="{ textShadow: '0 2px 4px rgba(0,0,0,0.2)' }"
-              >
-                {{ author.name }}
-              </span>
-            </div>
-            <div class="p-5">
-              <p class="text-center text-sm tracking-wider text-textSecondary">
-                {{ author.nationality }} ({{ author?.born_year }}{{ author?.death_year && `-${author.death_year}` }})
-              </p>
-              <div class="my-4 h-px w-full bg-gray-100" />
-              <div class="flex items-center justify-around text-xs text-secondary">
-                <div class="flex flex-col">
-                  <p class="text-center font-semibold">{{ author.texts?.length || 0 }}</p>
-                  <p class="text-sm">Texts</p>
-                </div>
-                <div class="flex flex-col">
-                  <p class="text-center font-semibold">{{ author.texts?.length || 0 }}</p>
-                  <p class="text-sm">Quotes</p>
-                </div>
-                <div class="flex flex-col">
-                  <p class="text-center font-semibold">{{ author.texts?.length || 0 }}</p>
-                  <p class="text-sm">Books</p>
-                </div>
-              </div>
-            </div>
-          </Link>
-        </div>
+          <div class="card-background relative flex h-20 items-center justify-center overflow-hidden px-6">
+            <div
+              class="absolute inset-0 opacity-15"
+              :style="{
+                backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
+                backgroundSize: '24px 24px',
+              }"
+            />
+            <span
+              class="relative truncate font-playfair text-xl font-semibold capitalize text-textLight"
+              :style="{ textShadow: '0 2px 4px rgba(0,0,0,0.2)' }"
+            >
+              {{ author.name }}
+            </span>
+          </div>
+          <div class="flex items-center justify-between gap-2 px-4 py-3 text-xs text-textSecondary">
+            <span class="truncate">
+              {{
+                [author.nationality, [author.born_year, author.death_year].filter(Boolean).join('–')]
+                  .filter(Boolean)
+                  .join(' · ') || 'No details yet'
+              }}
+            </span>
+            <span class="flex shrink-0 items-center gap-1">
+              <Icon icon="texts" class="h-3.5 w-3.5" />
+              {{ author.texts?.length || 0 }} text{{ author.texts?.length === 1 ? '' : 's' }}
+            </span>
+          </div>
+        </Link>
       </div>
+
+      <Pagination
+        :current_page="authors.current_page"
+        :per_page="authors.per_page"
+        :total="authors.total"
+        :last_page="authors.last_page"
+        @update:current_page="
+          (newPage) =>
+            router.get(
+              '/authors',
+              {
+                page: newPage,
+                period: filter.period?.id,
+                genre: filter.genre?.id,
+                search: filter.search,
+              },
+              { preserveState: true },
+            )
+        "
+        entity="authors"
+      />
     </div>
-    <Pagination
-      :current_page="authors.current_page"
-      :per_page="authors.per_page"
-      :total="authors.total"
-      :last_page="authors.last_page"
-      @update:current_page="
-        (newPage) =>
-          router.get(
-            '/authors',
-            {
-              page: newPage,
-              period: filter.period?.id,
-              genre: filter.genre?.id,
-              search: filter.search,
-            },
-            { preserveState: true },
-          )
-      "
-      entity="authors"
-    />
   </div>
   <NewAuthorModal
     v-if="showAddAuthorModal"

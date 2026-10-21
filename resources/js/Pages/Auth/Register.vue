@@ -26,6 +26,11 @@
   <GuestLayout>
     <Head title="Register" />
 
+    <div class="mb-8 text-center">
+      <h1 class="font-playfair text-3xl font-semibold text-textPrimary">Create your account</h1>
+      <p class="mt-2 text-sm text-textSecondary">Start building your own annotated library</p>
+    </div>
+
     <form @submit.prevent="submit">
       <div>
         <InputLabel for="name" value="Name" />

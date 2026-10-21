@@ -19,6 +19,8 @@
 
   const isSavingText = ref(false);
   const isLoading = ref(false);
+  const authorName = ref('');
+  const fetchError = ref('');
   const newText = ref<Text>({
     title: '',
     content: '',
@@ -29,30 +31,24 @@
 
     isLoading.value = true;
 
-    const response = await axios.post(
-      '/texts/fetch-text',
-      {
+    let data: Record<string, string> = {};
+    try {
+      const response = await axios.post('/texts/fetch-text', {
         content: newText.value.content,
         title: newText.value.title,
         author: newText.value.author?.name,
-      },
-      {
-        headers: {
-          'Content-Type': 'application/json',
-          charset: 'utf-8',
-        },
-      },
-    );
-
-    const data = await response.data;
+      });
+      data = response.data;
+    } catch {
+      // Continue to the review step with empty fields so the user can fill them in
+      fetchError.value = "We couldn't analyze this text right now. You can fill in the details yourself.";
+    }
 
     if (!newText.value.title) {
       newText.value.title = data.title;
     }
 
-    if (!newText.value.author) {
-      newText.value.author = data.author;
-    }
+    authorName.value = newText.value.author?.name || data.author || '';
 
     newText.value.language = data.language;
     newText.value.year = data.year;
@@ -65,10 +61,12 @@
   async function createText() {
     await router.post('/texts', {
       ...newText.value,
-      author_id: newText.value.author?.id,
+      author: undefined,
+      author_name: authorName.value,
     });
     isSavingText.value = false;
     emit('close');
+    authorName.value = '';
     newText.value = {
       content: '',
       title: '',
@@ -77,6 +75,8 @@
 
   function closeCreateTextModal() {
     emit('close');
+    authorName.value = '';
+    fetchError.value = '';
     newText.value = {
       title: '',
       content: '',
@@ -139,14 +139,18 @@
         <p class="text-sm text-textSecondary">We're processing the content and identifying key information...</p>
       </div>
       <div v-if="!isLoading && isSavingText" class="p-6">
-        <div class="mb-6 flex items-start justify-start gap-3 rounded-lg bg-blue-50 p-4">
+        <div v-if="fetchError" class="mb-6 flex items-start gap-3 rounded-lg bg-red-50 p-4">
+          <Icon icon="info" class="mt-0.5 h-5 w-5 flex-shrink-0 text-error" />
+          <span class="text-sm text-error">{{ fetchError }}</span>
+        </div>
+        <div v-else class="mb-6 flex items-start justify-start gap-3 rounded-lg bg-blue-50 p-4">
           <Icon icon="check" class="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600" />
           <span class="text-sm">
             We've analyzed your text. Please review and edit the information below if needed.
           </span>
         </div>
         <InputText class="mb-4" v-model="newText.title" placeholder="Title" label="Title" />
-        <InputText class="mb-4" v-model="newText.author" placeholder="Author" label="Author" />
+        <InputText class="mb-4" v-model="authorName" placeholder="Author" label="Author" />
         <div class="flex gap-4">
           <InputText class="mb-4 w-1/2" v-model="newText.type" placeholder="Type" label="Type" />
           <InputText

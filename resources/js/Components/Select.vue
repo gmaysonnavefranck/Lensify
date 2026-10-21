@@ -60,17 +60,31 @@
 <style src="vue-multiselect/dist/vue-multiselect.min.css"></style>
 
 <style>
+  .multiselect,
+  .multiselect__single,
+  .multiselect__option {
+    @apply text-sm;
+  }
+  .multiselect {
+    min-height: 38px;
+  }
+  .multiselect__select {
+    height: 38px;
+  }
   .multiselect__tags {
-    @apply rounded-md border border-gray-200 px-4 py-2 pr-8;
+    @apply min-h-[38px] rounded-md border border-gray-200 px-3 py-2 pr-8;
   }
   .multiselect__tags:has(.multiselect__input:focus) {
-    @apply rounded-md border-transparent ring-2 ring-blue-200;
+    @apply rounded-md border-transparent ring-2 ring-primary/30;
   }
   .multiselect__placeholder {
-    @apply m-0 p-0 font-inter text-base text-gray-500;
+    @apply m-0 p-0 font-inter text-sm text-gray-500;
+  }
+  .multiselect__single {
+    @apply m-0 p-0;
   }
   .multiselect__input {
-    @apply m-0 border-0 p-0 py-0.5 text-textPrimary focus:ring-0;
+    @apply m-0 border-0 p-0 text-sm text-textPrimary focus:ring-0;
   }
   .multiselect__content-wrapper {
     @apply mt-1 rounded-md border border-gray-200 shadow-md;

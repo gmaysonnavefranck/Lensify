@@ -57,109 +57,88 @@
 
 <template>
   <Head title="Texts" />
-  <div class="flex h-full w-full max-w-5xl flex-col place-self-center p-10">
-    <div>
-      <div class="mb-6 flex w-full items-center justify-between">
+  <div class="h-full overflow-y-auto">
+    <div class="mx-auto w-full max-w-6xl px-8 py-8">
+      <div class="mb-6 flex items-end justify-between">
         <div>
-          <h1 class="text-4xl font-bold text-textPrimary">Your Texts</h1>
-          <span class="text-base font-normal text-secondary">Texts you've added to your collection</span>
+          <h1 class="text-2xl font-semibold text-textPrimary">Your Texts</h1>
+          <p class="mt-1 text-sm text-secondary">Texts you've added to your collection</p>
         </div>
-        <Button type="primary" @click="showAddTextModal = true">
-          <div class="flex items-center gap-2 p-1">
-            <Icon icon="plus" class="h-5 w-5 text-textLight" />
-            <span> Add Text </span>
-          </div>
-        </Button>
+        <Button type="primary" icon="plus" text="Add Text" @click="showAddTextModal = true" />
       </div>
       <Filter @update:model-value="(search: string) => (filter.search = search)" v-model="filter.search">
-        <div class="flex gap-6">
-          <Select
-            class="w-1/2"
-            label="Author"
-            placeholder="Select an author"
-            v-model="filter.author"
-            :options="authors"
-            track-by="name"
-            display-by="name"
-          />
-        </div>
+        <Select
+          class="max-w-sm"
+          label="Author"
+          placeholder="Any author"
+          v-model="filter.author"
+          :options="authors"
+          track-by="name"
+          display-by="name"
+        />
       </Filter>
-    </div>
-    <div class="flex-grow overflow-y-auto">
-      <div class="grid w-full grid-cols-1 gap-6 md:grid-cols-3">
-        <div
+
+      <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <Link
           v-for="text in texts.data"
           :key="text.id"
-          class="cursor-pointer overflow-hidden rounded-lg border border-gray-200 hover:shadow-md"
+          :href="'/texts/' + text.id"
+          class="flex flex-col overflow-hidden rounded-lg border border-gray-200 bg-white transition-shadow hover:shadow-md"
         >
-          <Link :href="'/texts/' + text.id">
-            <div class="card-background relative flex h-32 w-full items-center justify-center overflow-hidden">
-              <div
-                class="absolute inset-0 opacity-15"
-                :style="{
-                  backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
-                  backgroundSize: '24px 24px',
-                }"
-              />
-              <span
-                v-if="text.type"
-                class="absolute right-2 top-2 rounded-md bg-white bg-opacity-20 px-2 py-1 text-xs capitalize text-white"
-              >
-                {{ text.type }}
-              </span>
-              <span
-                class="relative z-10 line-clamp-2 p-2 text-center font-playfair text-2xl font-semibold capitalize text-textLight"
-                :style="{ textShadow: '0 2px 4px rgba(0,0,0,0.2)' }"
-              >
-                {{ text.title }}
-              </span>
+          <div class="card-background relative flex h-24 items-center justify-center overflow-hidden px-6">
+            <div
+              class="absolute inset-0 opacity-15"
+              :style="{
+                backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
+                backgroundSize: '24px 24px',
+              }"
+            />
+            <span
+              v-if="text.type"
+              class="absolute right-2 top-2 rounded bg-white/20 px-1.5 py-0.5 text-[11px] capitalize text-white"
+            >
+              {{ text.type }}
+            </span>
+            <span
+              class="relative line-clamp-2 text-center font-playfair text-lg font-semibold leading-snug text-textLight"
+              :style="{ textShadow: '0 2px 4px rgba(0,0,0,0.2)' }"
+            >
+              {{ text.title }}
+            </span>
+          </div>
+          <div class="flex flex-1 flex-col p-4">
+            <div class="flex items-center justify-between gap-2 text-xs text-textSecondary">
+              <span class="truncate font-semibold text-textPrimary">{{ text.author?.name ?? 'Unknown author' }}</span>
+              <span class="shrink-0">{{ text.year }}</span>
             </div>
-            <div class="p-4">
-              <p class="text-sm font-semibold">
-                {{ text.author?.name ?? 'unknown' }}
-              </p>
-              <div class="mt-1 flex items-center justify-start gap-1">
-                <Icon icon="calendar" class="h-3 w-3 text-textSecondary" />
-                <span class="text-xs text-textSecondary">
-                  {{ text?.year || 'unknown date' }}
-                </span>
-              </div>
-              <p class="line-clamp-3 pb-4 pt-3 text-sm italic">"{{ text.content }}...</p>
-              <hr />
-              <div class="mt-3 flex items-start justify-between">
-                <div class="flex gap-1">
-                  <Icon icon="message" class="mt-0.5 h-3.5 w-3.5 text-textSecondary" />
-                  <span class="text-xs text-textSecondary">
-                    {{ text?.text_notes }} footnote{{ text?.text_notes !== 1 ? 's' : '' }}
-                  </span>
-                </div>
-                <span class="rounded-md bg-gray-100 px-2 py-1 text-sm text-textSecondary">
-                  {{ text.language }}
-                </span>
-              </div>
+            <p class="mt-2 line-clamp-2 flex-1 text-sm italic text-textSecondary">“{{ text.content }}…”</p>
+            <div class="mt-3 flex items-center justify-between border-t border-gray-100 pt-3 text-xs text-textSecondary">
+              <span class="flex items-center gap-1">
+                <Icon icon="message" class="h-3.5 w-3.5" />
+                {{ text.text_notes }} footnote{{ text.text_notes !== 1 ? 's' : '' }}
+              </span>
+              <span v-if="text.language" class="rounded bg-gray-100 px-1.5 py-0.5">{{ text.language }}</span>
             </div>
-          </Link>
-        </div>
+          </div>
+        </Link>
       </div>
+
+      <Pagination
+        :current_page="texts.current_page"
+        :per_page="texts.per_page"
+        :total="texts.total"
+        :last_page="texts.last_page"
+        @update:current_page="
+          (newPage) =>
+            router.get(
+              '/texts',
+              { page: newPage, author: filter.author?.id, search: filter.search },
+              { preserveState: true },
+            )
+        "
+        entity="texts"
+      />
     </div>
-    <Pagination
-      :current_page="texts.current_page"
-      :per_page="texts.per_page"
-      :total="texts.total"
-      :last_page="texts.last_page"
-      @update:current_page="
-        (newPage) =>
-          router.get(
-            '/texts',
-            {
-              page: newPage,
-              period: filter.author?.id,
-            },
-            { preserveState: true },
-          )
-      "
-      entity="texts"
-    />
   </div>
   <NewTextModal
     v-if="showAddTextModal"

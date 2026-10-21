@@ -15,7 +15,7 @@
 <template>
   <Link :href="href" class="navLink" :class="{ selected: selected }">
     <Icon :icon="icon" :alt="text" class="h-4 w-4" />
-    <span class="font-semibold leading-4">{{ text }}</span>
+    <span class="text-sm font-semibold leading-4">{{ text }}</span>
   </Link>
 </template>
 

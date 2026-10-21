@@ -31,6 +31,11 @@
   <GuestLayout>
     <Head title="Log in" />
 
+    <div class="mb-8 text-center">
+      <h1 class="font-playfair text-3xl font-semibold text-textPrimary">Welcome back</h1>
+      <p class="mt-2 text-sm text-textSecondary">Log in to continue reading</p>
+    </div>
+
     <div v-if="status" class="mb-4 text-sm font-medium text-green-600">
       {{ status }}
     </div>

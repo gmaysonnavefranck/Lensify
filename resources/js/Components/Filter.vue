@@ -1,21 +1,19 @@
 <template>
-  <div class="mb-6 rounded-lg border border-gray-200 bg-white p-4">
-    <div class="flex items-center gap-4">
-      <InputText v-model="internalSearch" class="flex-grow self-center" :placeholder="searchPlaceholder" />
-      <Button class="self-end" type="outline" @click="isFiltersOpen = !isFiltersOpen">
-        <div class="flex items-center gap-2 px-1 py-0.5">
-          <Icon icon="filter" class="h-5 w-5 text-gray-600" />
-          Filters
-          <Icon
-            icon="chevronUp"
-            class="h-4 w-4 text-gray-600 transition-transform duration-300 ease-in-out"
-            :class="{ 'rotate-180': isFiltersOpen }"
-          />
-        </div>
+  <div class="mb-6">
+    <div class="flex items-center gap-3">
+      <InputText v-model="internalSearch" class="flex-grow" :placeholder="searchPlaceholder" />
+      <Button type="outline" @click="isFiltersOpen = !isFiltersOpen">
+        <Icon icon="filter" class="h-4 w-4 text-gray-600" />
+        Filters
+        <Icon
+          icon="chevronUp"
+          class="h-4 w-4 text-gray-600 transition-transform duration-300 ease-in-out"
+          :class="{ 'rotate-180': isFiltersOpen }"
+        />
       </Button>
     </div>
     <transition name="filter-slide" appear>
-      <div v-if="isFiltersOpen" class="mt-4 border-t border-gray-200 pt-4">
+      <div v-if="isFiltersOpen" class="mt-3 rounded-lg border border-gray-200 bg-surface p-4">
         <slot />
       </div>
     </transition>

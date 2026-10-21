@@ -5,22 +5,16 @@ use App\Http\Controllers\ChatController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TextController;
 use App\Http\Controllers\TextNoteController;
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin' => Route::has('login'),
-        'canRegister' => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion' => PHP_VERSION,
-    ]);
+    return Inertia::render('Welcome');
 });
 
 Route::middleware(['auth', 'verified'])->prefix('texts')->group(function () {
     Route::post('/', [TextController::class, 'store']);
-    Route::get('/', [TextController::class, 'index']);
+    Route::get('/', [TextController::class, 'index'])->name('texts.index');
     Route::get('{id}', [TextController::class, 'show'])->name('texts.show');
 
     Route::post('{text}/assign-author', [TextController::class, 'assignAuthor']);
@@ -38,7 +32,7 @@ Route::middleware(['auth', 'verified'])->prefix('authors')->group(function () {
     Route::post('fetch-author', [AuthorController::class, 'getAuthorInformation']);
 });
 
-Route::prefix('chat')->group(function () {
+Route::middleware(['auth', 'verified'])->prefix('chat')->group(function () {
     Route::post('analyze-text', [ChatController::class, 'analyzeText']);
 });
 
@@ -49,10 +43,6 @@ Route::get('quotes', function () {
 Route::get('books', function () {
     return Inertia::render('Books/Books');
 });
-
-Route::get('dashboard', function () {
-    return Inertia::render('Dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::get('profile', [ProfileController::class, 'edit'])->name('profile.edit');

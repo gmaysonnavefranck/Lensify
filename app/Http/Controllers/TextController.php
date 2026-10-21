@@ -57,8 +57,15 @@ class TextController extends Controller
         $validated = $request->validate([
             'title' => 'required|string',
             'content' => 'required|string',
-            'author_id' => 'nullable|exists:authors,id',
+            'author_name' => 'nullable|string|max:255',
         ]);
+
+        // Reuse the user's author with this name, or create it
+        $authorId = null;
+        if ($name = trim($validated['author_name'] ?? '')) {
+            $authorId = (Author::where('user_id', Auth::id())->where('name', $name)->first()
+                ?? Author::create(['name' => $name, 'user_id' => Auth::id()]))->id;
+        }
 
         // Create the text
         $newText = Text::create([
@@ -67,7 +74,7 @@ class TextController extends Controller
             'year' => $request->input('year'),
             'type' => $request->input('type'),
             'language' => $request->input('language'),
-            'author_id' => $validated['author_id'],
+            'author_id' => $authorId,
             'user_id' => \Illuminate\Support\Facades\Auth::user()->id,
         ]);
 

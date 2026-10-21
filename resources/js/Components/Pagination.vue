@@ -1,6 +1,6 @@
 <template>
-  <div class="mt-6 flex items-center justify-between pt-6">
-    <span class="text-textSecondary">
+  <div class="mt-8 flex items-center justify-between">
+    <span class="text-sm text-textSecondary">
       Showing
       <template v-if="total">
         <span class="font-medium">
@@ -14,24 +14,24 @@
       <span class="font-medium">{{ total }}</span>
       {{ entity }}
     </span>
-    <div class="flex items-center justify-center gap-2">
+    <div class="flex items-center justify-center gap-1">
       <Button
         type="ghost"
         icon="chevronsLeft"
-        iconClass="h-[24px] w-[24px]"
+        iconClass="h-4 w-4"
         :disabled="current_page === 1"
         @click="current_page > 1 && emit('update:current_page', 1)"
       />
       <Button
         type="ghost"
         icon="chevronLeft"
-        iconClass="h-[24px] w-[24px]"
+        iconClass="h-4 w-4"
         :disabled="current_page === 1"
         @click="current_page > 1 && emit('update:current_page', current_page - 1)"
       />
       <Button
         v-for="page in pages"
-        class="h-[35px] w-[35px] justify-center"
+        class="h-8 w-8 justify-center"
         :type="page === current_page ? 'primary' : 'ghost'"
         @click="emit('update:current_page', page)"
       >
@@ -42,14 +42,14 @@
       <Button
         type="ghost"
         icon="chevronRight"
-        iconClass="h-[24px] w-[24px]"
+        iconClass="h-4 w-4"
         :disabled="current_page === last_page"
         @click="current_page < last_page && emit('update:current_page', current_page + 1)"
       />
       <Button
         type="ghost"
         icon="chevronsRight"
-        iconClass="h-[24px] w-[24px]"
+        iconClass="h-4 w-4"
         :disabled="current_page === last_page"
         @click="current_page < last_page && emit('update:current_page', last_page)"
       />

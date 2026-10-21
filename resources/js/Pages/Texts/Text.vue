@@ -3,7 +3,7 @@
   import Button from '@/Components/Button.vue';
   import Icon from '@/Components/Icon.vue';
   import { Text } from '@/types/index';
-  import { computed, onMounted, ref } from 'vue';
+  import { computed, onMounted, onUnmounted, ref } from 'vue';
   import { Link, router } from '@inertiajs/vue3';
 
   import axios from 'axios';
@@ -18,7 +18,10 @@
   const isGeneratingExplanation = ref<boolean>(false);
   const isAiGenerated = ref<boolean>(false);
   const newFootnote = ref<string>('');
+  const aiError = ref<string>('');
   const selectedTextPosition = ref<{ top: number; left: number } | null>(null);
+  const contentContainer = ref<HTMLElement | null>(null);
+  const selectionPopup = ref<HTMLElement | null>(null);
   const isTranslationMenuOpen = ref<boolean>(false);
   const selectedTranslation = ref<{ language: string; id: number; content: string }>({
     language: '',
@@ -36,23 +39,62 @@
       language: props.text.language || 'Unknown language',
       content: props.text.content,
     };
-    document.addEventListener('mouseup', function (event) {
-      if (event.target?.id !== 'content-container') return;
-      const selection = window.getSelection();
-      const text = selection?.toString().trim();
-      if (text && (!isWritingNote.value || !isGeneratingExplanation.value)) {
-        selectedText.value = text;
-        const range = selection?.getRangeAt(0);
-        const rect = range?.getBoundingClientRect();
-        if (rect) {
-          selectedTextPosition.value = {
-            top: rect.bottom + window.scrollY,
-            left: rect.right,
-          };
-        }
-      }
-    });
+    document.addEventListener('mouseup', onMouseUp);
   });
+
+  onUnmounted(() => document.removeEventListener('mouseup', onMouseUp));
+
+  function onMouseUp(event: MouseEvent) {
+    // Keep the popup while interacting with it or while a note is in progress
+    if (selectionPopup.value?.contains(event.target as Node)) return;
+    if (isWritingNote.value || isGeneratingExplanation.value) return;
+
+    const selection = window.getSelection();
+    const text = selection?.toString().trim();
+    const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+
+    if (!text || !range || !contentContainer.value?.contains(range.commonAncestorContainer)) {
+      selectedText.value = '';
+      selectedTextPosition.value = null;
+      return;
+    }
+
+    const rect = range.getBoundingClientRect();
+    selectedText.value = text;
+    selectedTextPosition.value = { top: rect.bottom, left: rect.left + rect.width / 2 };
+  }
+
+  const activeNoteId = ref<number | null>(null);
+
+  // Notes numbered in reading order, matching the markers in the text
+  const sortedNotes = computed(() =>
+    [...(props.text.text_notes || [])].sort((a, b) => a.start_position - b.start_position),
+  );
+
+  // Split the content into plain and annotated chunks
+  // ponytail: overlapping notes are skipped in the text (still listed in the panel); nest marks if overlaps become common
+  const contentSegments = computed(() => {
+    const content = props.text.content;
+    const segments: { text: string; noteId?: number; number?: number }[] = [];
+    let cursor = 0;
+    sortedNotes.value.forEach((note, index) => {
+      if (note.start_position < cursor || note.end_position > content.length) return;
+      segments.push({ text: content.slice(cursor, note.start_position) });
+      segments.push({
+        text: content.slice(note.start_position, note.end_position),
+        noteId: note.id,
+        number: index + 1,
+      });
+      cursor = note.end_position;
+    });
+    segments.push({ text: content.slice(cursor) });
+    return segments;
+  });
+
+  function focusNote(id: number) {
+    activeNoteId.value = id;
+    document.getElementById(`note-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
 
   const allLanguages = computed(() => {
     const translations: { language: string; id: number; content: string }[] =
@@ -71,14 +113,14 @@
 
   async function generateExplanation() {
     isGeneratingExplanation.value = true;
-    const response = await axios.post('/chat/analyze-text', {
-      text: selectedText.value,
-    });
-
-    // Parse the JSON response
-    const data = await response.data.footNote;
-    newFootnote.value = data;
-    isAiGenerated.value = true;
+    aiError.value = '';
+    try {
+      const response = await axios.post('/chat/analyze-text', { text: selectedText.value });
+      newFootnote.value = response.data.footNote;
+      isAiGenerated.value = true;
+    } catch {
+      aiError.value = "Couldn't generate an analysis right now. Write your own note or try again later.";
+    }
     isGeneratingExplanation.value = false;
     isWritingNote.value = true;
   }
@@ -127,6 +169,7 @@
     isWritingNote.value = false;
     isGeneratingExplanation.value = false;
     isAiGenerated.value = false;
+    aiError.value = '';
     selectedText.value = '';
     newFootnote.value = '';
   }
@@ -183,9 +226,19 @@
       </p>
       <p class="mb-8 text-lg capitalize text-textSecondary">by {{ text.author?.name || 'Unknown author' }}</p>
       <div class="max-w-none select-text overflow-y-auto text-lg leading-relaxed text-textPrimary">
-        <p id="content-container" class="whitespace-pre-wrap">
-          {{ text.content }}
-        </p>
+        <p ref="contentContainer" class="whitespace-pre-wrap"
+          ><template v-for="(segment, i) in contentSegments" :key="i"
+            ><mark
+              v-if="segment.noteId"
+              :data-n="segment.number"
+              class="cursor-pointer rounded-sm bg-transparent text-inherit underline decoration-primary/40 decoration-2 underline-offset-4 transition-colors after:ml-0.5 after:align-super after:text-xs after:font-semibold after:text-primary after:no-underline after:content-[attr(data-n)]"
+              :class="activeNoteId === segment.noteId ? 'bg-primary/15 decoration-primary' : 'hover:bg-primary/10'"
+              @mouseenter="activeNoteId = segment.noteId"
+              @mouseleave="activeNoteId = null"
+              @click="focusNote(segment.noteId)"
+              >{{ segment.text }}</mark
+            ><template v-else>{{ segment.text }}</template></template
+          ></p>
       </div>
     </div>
     <div class="flex w-1/2 flex-col bg-gray-50 p-12">
@@ -199,11 +252,15 @@
           {{ text.text_notes?.length || 0 }}
         </span>
       </div>
-      <div v-if="text.text_notes && text.text_notes.length > 0" class="space-y-4">
+      <div v-if="sortedNotes.length > 0" class="space-y-4 overflow-y-auto">
         <div
-          class="rounded-lg border border-gray-200 bg-white p-4"
-          v-for="(footNote, index) in text.text_notes"
+          v-for="(footNote, index) in sortedNotes"
+          :id="`note-${footNote.id}`"
           :key="footNote.id"
+          class="rounded-lg border bg-white p-4 transition-all"
+          :class="activeNoteId === footNote.id ? 'border-primary shadow-md' : 'border-gray-200'"
+          @mouseenter="activeNoteId = footNote.id"
+          @mouseleave="activeNoteId = null"
         >
           <div class="flex gap-4">
             <div class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-200">
@@ -256,11 +313,14 @@
   </div>
   <div
     v-if="selectedTextPosition && selectedText"
-    class="w-max-[400px] fixed z-50 mt-2 -translate-x-1/2 transform rounded-lg border border-gray-200 bg-slate-50 bg-white p-2 shadow-lg"
-    :style="{
-      top: `${selectedTextPosition.top}px`,
-      left: `${selectedTextPosition.left}px`,
-    }"
+    ref="selectionPopup"
+    class="fixed z-50 -translate-x-1/2 transform rounded-lg border border-gray-200 bg-white p-2 shadow-lg"
+    :class="isWritingNote ? 'max-h-[90vh] -translate-y-1/2 overflow-y-auto' : 'mt-2'"
+    :style="
+      isWritingNote
+        ? { top: '50%', left: '50%' }
+        : { top: `${selectedTextPosition.top}px`, left: `${selectedTextPosition.left}px` }
+    "
   >
     <div v-if="!isGeneratingExplanation && !isWritingNote" class="flex gap-2">
       <Button type="ghost" icon="squarePen" @click="isWritingNote = true"> Write Note </Button>
@@ -270,19 +330,20 @@
       <Icon icon="loading" class="h-5 w-5 animate-spin text-primary" />
       <p class="text-sm text-textSecondary">Generating analysis...</p>
     </div>
-    <div v-if="isWritingNote" class="w-max-[400px] p-2">
+    <div v-if="isWritingNote" class="w-[min(560px,90vw)] p-2">
       <div class="mb-4 flex items-center justify-between">
         <p class="font-medium text-textPrimary">Add Footnote</p>
         <Button class="!p-1" type="ghost" icon="x" @click="closeCreateFootnoteMenu"></Button>
       </div>
-      <p class="line-clamp-3 w-[400px] text-sm italic text-textSecondary">"{{ selectedText }}"</p>
+      <p class="line-clamp-3 text-sm italic text-textSecondary">"{{ selectedText }}"</p>
       <hr class="my-4" />
+      <p v-if="aiError" class="mb-3 text-sm text-error">{{ aiError }}</p>
 
       <textarea
         v-model="newFootnote"
         placeholder="Write your analysis, explanation, or commentary here..."
-        rows="4"
-        class="w-full resize-none rounded-md border border-gray-200 px-4 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-200"
+        rows="8"
+        class="w-full resize-y rounded-md border border-gray-200 px-4 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-200"
       />
       <div class="mt-2 flex justify-end gap-2">
         <Button type="ghost" @click="closeCreateFootnoteMenu">Cancel</Button>

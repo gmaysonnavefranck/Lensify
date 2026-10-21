@@ -3,6 +3,8 @@ import forms from '@tailwindcss/forms';
 
 /** @type {import('tailwindcss').Config} */
 export default {
+  // No dark theme yet; keeps leftover Breeze dark: classes from following the OS setting
+  darkMode: 'class',
   content: [
     './vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php',
     './storage/framework/views/*.php',

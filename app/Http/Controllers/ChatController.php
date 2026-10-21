@@ -12,22 +12,26 @@ class ChatController extends Controller
     public function chat(string $prompt)
     {
 
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . config('services.openai.key'),
-        ])->post('https://api.openai.com/v1/chat/completions', [
-            'model' => 'gpt-4-turbo',
-            'temperature' => 0.0,
-            'messages' => [
-                [
-                    'role' => 'user',
-                    'content' => $prompt,
+        $response = Http::withToken(config('services.openai.key'))
+            ->timeout(60)
+            ->post('https://api.openai.com/v1/chat/completions', [
+                'model' => config('services.openai.model'),
+                'reasoning_effort' => 'low',
+                'response_format' => ['type' => 'json_object'],
+                'messages' => [
+                    [
+                        'role' => 'user',
+                        'content' => $prompt,
+                    ],
                 ],
-            ],
-        ]);
+            ]);
 
-        // Extract the response content and clean the markdown code block
-        Log::info($response->json());
-        $aiResponse = $response->json()['choices'][0]['message']['content'];
+        if ($response->failed()) {
+            Log::error('OpenAI request failed', ['status' => $response->status(), 'error' => $response->json('error')]);
+            abort(502, 'The AI service is unavailable right now.');
+        }
+
+        $aiResponse = $response->json('choices.0.message.content');
         // Clean the response (remove markdown code block markers)
         $cleanedResponse = preg_replace('/^```json\n|```$/', '', $aiResponse);
 

@@ -42,6 +42,7 @@ export type Author = {
   famous_works?: string[];
   key_facts?: string[];
   period?: Period[];
+  literary_periods?: Period[];
   themes?: Theme[];
   genres?: Genre[];
   texts?: Text[];
@@ -57,7 +58,16 @@ export type Text = {
   type?: string;
   translations?: Text[];
   translation_for?: number;
-  text_notes?: FootNotes[];
+  text_notes?: FootNote[];
+};
+
+export type FootNote = {
+  id: number;
+  note: string;
+  text_content: string;
+  start_position: number;
+  end_position: number;
+  is_ai_generated: boolean;
 };
 
 export type Genre = {

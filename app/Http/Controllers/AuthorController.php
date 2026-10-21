@@ -37,26 +37,7 @@ class AuthorController extends Controller
                 ->with('texts')
                 ->orderBy('created_at', 'desc')
                 ->paginate(9)
-                ->through(function ($author) {
-                    return [
-                        'id' => $author->id,
-                        'name' => $author->name,
-                        'key_facts' => json_decode($author->key_facts),
-                        'born_year' => $author->born_year,
-                        'death_year' => $author->death_year,
-                        'famous_works' => json_decode($author->famous_works),
-                        'nationality' => $author->nationality,
-                        'genres' => $author->genres->map(function ($genre) {
-                            return ['id' => $genre->id, 'name' => $genre->name];
-                        }),
-                        'themes' => $author->themes->map(function ($theme) {
-                            return ['id' => $theme->id, 'name' => $theme->name];
-                        }),
-                        'literary_periods' => $author->literaryPeriods->map(function ($period) {
-                            return ['id' => $period->id, 'name' => $period->name];
-                        }),
-                    ];
-                }),
+                ->through(fn ($author) => $this->present($author)),
             'genres' => Genre::where('user_id', Auth::user()->id)->get()->map(function ($genre) {
                 return ['id' => $genre->id, 'name' => $genre->name];
             }),
@@ -79,44 +60,46 @@ class AuthorController extends Controller
             'genres.*' => 'string|max:64',
             'themes' => 'array',
             'themes.*' => 'string|max:64',
-            'period' => 'string|max:64',
+            'period' => 'nullable|string|max:64',
             'key_facts' => 'array',
             'key_facts.*' => 'string',
-            'born_year' => 'string|max:10',
-            'death_year' => 'string|max:10',
+            'born_year' => 'nullable|string|max:10',
+            'death_year' => 'nullable|string|max:10',
             'famous_works' => 'array',
             'famous_works.*' => 'string',
-            'nationality' => 'string|max:30',
+            'nationality' => 'nullable|string|max:30',
         ]);
 
-        // Create the text
+        // Create the author
         $newAuthor = Author::create([
             'name' => $validated['name'],
-            'key_facts' => json_encode($validated['key_facts']),
-            'born_year' => $validated['born_year'],
-            'death_year' => $validated['death_year'],
-            'famous_works' => json_encode($validated['famous_works']),
-            'nationality' => $validated['nationality'],
+            'key_facts' => json_encode($validated['key_facts'] ?? []),
+            'born_year' => $validated['born_year'] ?? null,
+            'death_year' => $validated['death_year'] ?? null,
+            'famous_works' => json_encode($validated['famous_works'] ?? []),
+            'nationality' => $validated['nationality'] ?? null,
             'user_id' => Auth::user()->id,
         ]);
 
         $newGenres = [];
-        foreach ($validated['genres'] as $genre) {
+        foreach ($validated['genres'] ?? [] as $genre) {
             $newGenres[] = Genre::firstOrCreate(['name' => $genre, 'user_id' => Auth::user()->id])->id;
         }
 
         $newAuthor->genres()->sync($newGenres);
 
         $newThemes = [];
-        foreach ($validated['themes'] as $theme) {
+        foreach ($validated['themes'] ?? [] as $theme) {
             $newThemes[] = Theme::firstOrCreate(['name' => $theme, 'user_id' => Auth::user()->id])->id;
         }
 
         $newAuthor->themes()->sync($newThemes);
 
-        $newLiteraryPeriod = LiteraryPeriod::firstOrCreate(['name' => $validated['period'], 'user_id' => Auth::user()->id])->id;
-
-        $newAuthor->literaryPeriods()->sync($newLiteraryPeriod);
+        if (! empty($validated['period'])) {
+            $newAuthor->literaryPeriods()->sync(
+                LiteraryPeriod::firstOrCreate(['name' => $validated['period'], 'user_id' => Auth::user()->id])->id
+            );
+        }
 
         return redirect()->route('authors.index');
     }
@@ -126,7 +109,26 @@ class AuthorController extends Controller
      */
     public function show(Request $request)
     {
-        return Inertia::render('Authors/Author', ['author' => Author::with('genres')->findOrFail($request->route('id'))]);
+        $author = Author::where('user_id', Auth::id())->findOrFail($request->route('id'));
+
+        return Inertia::render('Authors/Author', ['author' => $this->present($author)]);
+    }
+
+    private function present(Author $author): array
+    {
+        return [
+            'id' => $author->id,
+            'name' => $author->name,
+            'key_facts' => json_decode($author->key_facts ?? '[]'),
+            'born_year' => $author->born_year,
+            'death_year' => $author->death_year,
+            'famous_works' => json_decode($author->famous_works ?? '[]'),
+            'nationality' => $author->nationality,
+            'genres' => $author->genres->map->only(['id', 'name']),
+            'themes' => $author->themes->map->only(['id', 'name']),
+            'literary_periods' => $author->literaryPeriods->map->only(['id', 'name']),
+            'texts' => $author->texts->map->only(['id', 'title', 'year', 'type']),
+        ];
     }
 
     /**
@@ -153,7 +155,7 @@ class AuthorController extends Controller
         // Now delete the author
         $author->delete();
 
-        return Inertia::render(route('authors.index'));
+        return redirect()->route('authors.index');
     }
 
     public function getAuthorInformation(Request $request)
