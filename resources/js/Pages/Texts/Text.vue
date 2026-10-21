@@ -2,7 +2,7 @@
   import AuthLayout from '@/Layouts/AuthLayout.vue';
   import Button from '@/Components/Button.vue';
   import Icon from '@/Components/Icon.vue';
-  import { Text } from '@/types/index';
+  import { FootNote, Text } from '@/types/index';
   import { computed, onMounted, onUnmounted, ref } from 'vue';
   import { Link, router } from '@inertiajs/vue3';
 
@@ -47,11 +47,14 @@
   function onMouseUp(event: MouseEvent) {
     // Keep the popup while interacting with it or while a note is in progress
     if (selectionPopup.value?.contains(event.target as Node)) return;
-    if (isWritingNote.value || isGeneratingExplanation.value) return;
+    if (isWritingNote.value || isGeneratingExplanation.value || vocabState.value === 'saving') return;
 
     const selection = window.getSelection();
     const text = selection?.toString().trim();
     const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+
+    vocabState.value = 'idle';
+    savedWord.value = null;
 
     if (!text || !range || !contentContainer.value?.contains(range.commonAncestorContainer)) {
       selectedText.value = '';
@@ -62,6 +65,50 @@
     const rect = range.getBoundingClientRect();
     selectedText.value = text;
     selectedTextPosition.value = { top: rect.bottom, left: rect.left + rect.width / 2 };
+  }
+
+  const vocabState = ref<'idle' | 'saving' | 'saved'>('idle');
+  const savedWord = ref<{ word: string; definition: string | null; alreadySaved: boolean } | null>(null);
+  const canAddWord = computed(() => selectedText.value.split(/\s+/).length <= 4);
+
+  // The sentence (or line) around the selection, so the AI defines the word as used here
+  function sentenceAround(fragment: string) {
+    const content = props.text.content;
+    const at = content.indexOf(fragment);
+    if (at === -1) return fragment;
+    const boundaries = /[.!?\n]/g;
+    let start = 0;
+    let end = content.length;
+    for (const match of content.matchAll(boundaries)) {
+      if (match.index! < at) start = match.index! + 1;
+      else if (match.index! >= at + fragment.length) {
+        end = match.index! + 1;
+        break;
+      }
+    }
+    return content.slice(start, end).trim().slice(0, 1000);
+  }
+
+  async function addToVocabulary() {
+    vocabState.value = 'saving';
+    try {
+      const { data } = await axios.post('/vocabulary', {
+        word: selectedText.value,
+        context: sentenceAround(selectedText.value),
+        text_id: props.text.id,
+      });
+      savedWord.value = { ...data.word, alreadySaved: data.alreadySaved };
+    } catch {
+      savedWord.value = { word: selectedText.value, definition: null, alreadySaved: false };
+    }
+    vocabState.value = 'saved';
+  }
+
+  function closePopup() {
+    vocabState.value = 'idle';
+    savedWord.value = null;
+    selectedText.value = '';
+    selectedTextPosition.value = null;
   }
 
   const activeNoteId = ref<number | null>(null);
@@ -90,6 +137,28 @@
     segments.push({ text: content.slice(cursor) });
     return segments;
   });
+
+  const editingNoteId = ref<number | null>(null);
+  const editDraft = ref('');
+
+  function startEditing(note: FootNote) {
+    editingNoteId.value = note.id;
+    editDraft.value = note.note;
+  }
+
+  function saveEdit() {
+    if (!editDraft.value.trim()) return;
+    router.patch(
+      `/notes/${editingNoteId.value}`,
+      { note: editDraft.value },
+      { preserveScroll: true, preserveState: true, onSuccess: () => (editingNoteId.value = null) },
+    );
+  }
+
+  function deleteNote(note: FootNote) {
+    if (!confirm('Delete this footnote?')) return;
+    router.delete(`/notes/${note.id}`, { preserveScroll: true, preserveState: true });
+  }
 
   function focusNote(id: number) {
     activeNoteId.value = id;
@@ -257,7 +326,7 @@
           v-for="(footNote, index) in sortedNotes"
           :id="`note-${footNote.id}`"
           :key="footNote.id"
-          class="rounded-lg border bg-white p-4 transition-all"
+          class="group rounded-lg border bg-white p-4 transition-all"
           :class="activeNoteId === footNote.id ? 'border-primary shadow-md' : 'border-gray-200'"
           @mouseenter="activeNoteId = footNote.id"
           @mouseleave="activeNoteId = null"
@@ -266,9 +335,30 @@
             <div class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-200">
               <span class="text-sm font-medium text-primary">{{ index + 1 }}</span>
             </div>
-            <div>
-              <p class="mb-2 text-sm italic text-textSecondary">"{{ footNote.text_content }}"</p>
-              <p class="text-sm">{{ footNote.note }}</p>
+            <div class="min-w-0 flex-1">
+              <div class="mb-2 flex items-start justify-between gap-2">
+                <p class="text-sm italic text-textSecondary">"{{ footNote.text_content }}"</p>
+                <div
+                  v-if="editingNoteId !== footNote.id"
+                  class="flex shrink-0 gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
+                >
+                  <Button type="ghost" icon="squarePen" class="!p-1.5" title="Edit" @click="startEditing(footNote)" />
+                  <Button type="ghost" icon="trash" class="!p-1.5 hover:!text-error" title="Delete" @click="deleteNote(footNote)" />
+                </div>
+              </div>
+              <div v-if="editingNoteId === footNote.id">
+                <textarea
+                  v-model="editDraft"
+                  rows="5"
+                  class="w-full resize-y rounded-md border border-gray-200 px-3 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  @keydown.esc="editingNoteId = null"
+                />
+                <div class="mt-2 flex justify-end gap-2">
+                  <Button type="ghost" text="Cancel" @click="editingNoteId = null" />
+                  <Button text="Save" :disabled="!editDraft.trim()" @click="saveEdit" />
+                </div>
+              </div>
+              <p v-else class="whitespace-pre-line text-sm">{{ footNote.note }}</p>
             </div>
           </div>
         </div>
@@ -322,9 +412,29 @@
         : { top: `${selectedTextPosition.top}px`, left: `${selectedTextPosition.left}px` }
     "
   >
-    <div v-if="!isGeneratingExplanation && !isWritingNote" class="flex gap-2">
+    <div v-if="!isGeneratingExplanation && !isWritingNote && vocabState === 'idle'" class="flex gap-2">
       <Button type="ghost" icon="squarePen" @click="isWritingNote = true"> Write Note </Button>
+      <Button v-if="canAddWord" type="ghost" icon="bookA" @click="addToVocabulary">Add to vocabulary</Button>
       <Button icon="sparkles" @click="generateExplanation">Generate Analysis</Button>
+    </div>
+    <div v-if="vocabState === 'saving'" class="flex items-center gap-2 px-2 py-1">
+      <Icon icon="loading" class="h-5 w-5 animate-spin text-primary" />
+      <p class="text-sm text-textSecondary">Looking up the definition...</p>
+    </div>
+    <div v-if="vocabState === 'saved' && savedWord" class="w-[min(360px,90vw)] p-2">
+      <div class="flex items-start justify-between gap-2">
+        <p class="font-newsreader text-lg font-semibold text-textPrimary">{{ savedWord.word }}</p>
+        <Button class="!p-1" type="ghost" icon="x" @click="closePopup" />
+      </div>
+      <p v-if="savedWord.definition" class="mt-1 text-sm text-textPrimary">{{ savedWord.definition }}</p>
+      <p v-else class="mt-1 text-sm text-error">Saved, but we couldn't get a definition. You can add one later.</p>
+      <div class="mt-3 flex items-center justify-between text-xs">
+        <span class="flex items-center gap-1 text-success">
+          <Icon icon="check" class="h-3.5 w-3.5" />
+          {{ savedWord.alreadySaved ? 'Already in your vocabulary' : 'Added to vocabulary' }}
+        </span>
+        <Link href="/vocabulary" class="font-medium text-primary hover:underline">Open vocabulary →</Link>
+      </div>
     </div>
     <div v-if="isGeneratingExplanation" class="flex items-center gap-2">
       <Icon icon="loading" class="h-5 w-5 animate-spin text-primary" />

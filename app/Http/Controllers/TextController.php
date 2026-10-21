@@ -89,6 +89,7 @@ class TextController extends Controller
         return Inertia::render('Texts/Text', [
             'text' => Text::with(['author', 'textNotes'])
                 ->with(['translations:id,translation_for,language'])
+                ->where('user_id', Auth::id())
                 ->findOrFail($request->route('id'))
         ]);
     }

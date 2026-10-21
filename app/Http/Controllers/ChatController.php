@@ -58,6 +58,15 @@ class ChatController extends Controller
         return response()->json($this->chat($prompt));
     }
 
+    public function defineWord(string $word, ?string $context): ?string
+    {
+        $prompt = "You are a literary dictionary. Define the word or expression \"{$word}\" as it is used in this passage: \"{$context}\".
+            Answer in English in one or two short sentences, even if the passage is in another language. Mention the part of speech first.
+            Return a JSON object with definition as its key.";
+
+        return $this->chat($prompt)['definition'] ?? null;
+    }
+
     public function findAuthorInformation(Request $request)
     {
         $name = $request->input('name');

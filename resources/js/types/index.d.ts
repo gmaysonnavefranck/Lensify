@@ -70,6 +70,15 @@ export type FootNote = {
   is_ai_generated: boolean;
 };
 
+export type VocabularyWord = {
+  id: number;
+  word: string;
+  definition: string | null;
+  context: string | null;
+  created_at: string;
+  text?: { id: number; title: string } | null;
+};
+
 export type Genre = {
   id: number;
   name: string;

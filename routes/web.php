@@ -5,6 +5,7 @@ use App\Http\Controllers\ChatController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\TextController;
 use App\Http\Controllers\TextNoteController;
+use App\Http\Controllers\VocabularyController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -20,6 +21,16 @@ Route::middleware(['auth', 'verified'])->prefix('texts')->group(function () {
     Route::post('{text}/assign-author', [TextController::class, 'assignAuthor']);
     Route::post('{text}/footnote', [TextController::class, 'associateFootnote']);
     Route::post('fetch-text', [TextController::class, 'getTextInformation']);
+});
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::patch('notes/{textNote}', [TextNoteController::class, 'update']);
+    Route::delete('notes/{textNote}', [TextNoteController::class, 'destroy']);
+
+    Route::get('vocabulary', [VocabularyController::class, 'index'])->name('vocabulary.index');
+    Route::post('vocabulary', [VocabularyController::class, 'store']);
+    Route::patch('vocabulary/{vocabularyWord}', [VocabularyController::class, 'update']);
+    Route::delete('vocabulary/{vocabularyWord}', [VocabularyController::class, 'destroy']);
 });
 
 Route::middleware(['auth', 'verified'])->prefix('authors')->group(function () {

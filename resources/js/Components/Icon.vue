@@ -3,24 +3,18 @@
 </template>
 
 <script setup lang="ts">
-  import { onBeforeMount, ref } from 'vue';
+  import { computed } from 'vue';
 
   const props = defineProps<{
     icon: string;
   }>();
 
-  const svgContent = ref<string | null>(null);
-  onBeforeMount(async () => {
-    await loadSVG();
-  });
+  // Bundle every icon up front (they're tiny) instead of fetching each one after render
+  const icons = import.meta.glob<string>('../Icons/*.svg', { query: '?raw', import: 'default', eager: true });
 
-  async function loadSVG() {
-    try {
-      // Dynamically import the SVG based on the name prop
-      const svgModule = await import(`../Icons/${props.icon}.svg?raw`);
-      svgContent.value = svgModule.default;
-    } catch (error) {
-      console.error(`Icon "${props.icon}" not found.`);
-    }
-  }
+  const svgContent = computed(() => {
+    const svg = icons[`../Icons/${props.icon}.svg`];
+    if (!svg) console.error(`Icon "${props.icon}" not found.`);
+    return svg ?? null;
+  });
 </script>

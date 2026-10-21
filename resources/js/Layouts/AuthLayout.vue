@@ -22,6 +22,12 @@
         <nav class="mr-12 flex gap-6 self-center">
           <NavLink text="Texts" href="/texts" icon="texts" :selected="isPageSelected('Texts/Texts')" />
           <NavLink text="Authors" href="/authors" icon="author" :selected="isPageSelected('Authors/Authors')" />
+          <NavLink
+            text="Vocabulary"
+            href="/vocabulary"
+            icon="bookA"
+            :selected="isPageSelected('Vocabulary/Vocabulary')"
+          />
           <NavLink text="Books" href="/books" icon="books" :selected="isPageSelected('Books/Books')" />
           <NavLink text="Quotes" href="/quotes" icon="quotes" :selected="isPageSelected('Quotes/Quotes')" />
         </nav>
