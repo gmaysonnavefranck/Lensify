@@ -4,10 +4,12 @@
   import InputText from '@/Components/InputText.vue';
   import Modal from '@/Components/Modal.vue';
   import TagInput from '@/Components/TagInput.vue';
+  import { Author } from '@/types';
   import { ref } from 'vue';
   import { router } from '@inertiajs/vue3';
 
-  defineProps<{ showAddAuthorModal: boolean }>();
+  // With `author`, the modal edits that author instead of creating a new one
+  const props = defineProps<{ showAddAuthorModal: boolean; author?: Author }>();
 
   const emit = defineEmits<{ (e: 'close'): void }>();
 
@@ -23,9 +25,21 @@
     key_facts: [] as string[],
   });
 
-  const newAuthor = ref(emptyAuthor());
+  const fromAuthor = (author: Author) => ({
+    name: author.name,
+    nationality: author.nationality ?? '',
+    born_year: author.born_year ?? '',
+    death_year: author.death_year ?? '',
+    period: author.literary_periods?.[0]?.name ?? '',
+    genres: author.genres?.map((genre) => genre.name) ?? [],
+    themes: author.themes?.map((theme) => theme.name) ?? [],
+    famous_works: [...(author.famous_works ?? [])],
+    key_facts: [...(author.key_facts ?? [])],
+  });
+
+  const newAuthor = ref(props.author ? fromAuthor(props.author) : emptyAuthor());
   const isLoading = ref(false);
-  const isSavingAuthor = ref(false);
+  const isSavingAuthor = ref(!!props.author);
   const fetchError = ref('');
 
   const toText = (value: unknown) => (value === null || value === undefined ? '' : String(value));
@@ -59,11 +73,10 @@
   }
 
   function createAuthor() {
-    router.post(
-      '/authors',
-      { ...newAuthor.value, key_facts: newAuthor.value.key_facts.filter((fact) => fact.trim()) },
-      { onSuccess: closeCreateAuthorModal },
-    );
+    const data = { ...newAuthor.value, key_facts: newAuthor.value.key_facts.filter((fact) => fact.trim()) };
+    const options = { preserveScroll: true, onSuccess: closeCreateAuthorModal };
+    if (props.author) router.patch(`/authors/${props.author.id}`, data, options);
+    else router.post('/authors', data, options);
   }
 
   function closeCreateAuthorModal() {
@@ -78,7 +91,7 @@
   <Modal :show="showAddAuthorModal" @close="closeCreateAuthorModal" closeable>
     <div class="flex max-h-[90vh] flex-col">
       <div class="flex items-center justify-between border-b border-gray-200 px-6 py-4">
-        <h1 class="text-lg font-medium text-gray-900">Add New Author</h1>
+        <h1 class="text-lg font-medium text-gray-900">{{ author ? 'Edit Author' : 'Add New Author' }}</h1>
         <Button type="ghost" icon="x" icon-class="h-5 w-5" @click="closeCreateAuthorModal" />
       </div>
 
@@ -109,7 +122,7 @@
           <Icon icon="info" class="h-5 w-5 shrink-0 text-error" />
           <span class="text-sm text-error">{{ fetchError }}</span>
         </div>
-        <div v-else class="flex gap-3 rounded-lg bg-blue-50 p-4">
+        <div v-else-if="!author" class="flex gap-3 rounded-lg bg-blue-50 p-4">
           <Icon icon="info" class="h-5 w-5 shrink-0 text-blue-600" />
           <span class="text-sm text-blue-700">Review the information below. You can edit it before saving.</span>
         </div>
@@ -120,7 +133,12 @@
           <InputText v-model="newAuthor.nationality" placeholder="e.g., Italian" label="Nationality" />
           <InputText v-model="newAuthor.born_year" placeholder="e.g., 1265" label="Birth year" />
           <InputText v-model="newAuthor.death_year" placeholder="Leave empty if alive" label="Death year" />
-          <InputText class="col-span-2" v-model="newAuthor.period" placeholder="e.g., Renaissance" label="Literary period" />
+          <InputText
+            class="col-span-2"
+            v-model="newAuthor.period"
+            placeholder="e.g., Renaissance"
+            label="Literary period"
+          />
         </section>
 
         <section class="space-y-4">
@@ -155,7 +173,13 @@
           :disabled="!newAuthor.name.trim() || isLoading"
           @click="findAuthorInformation"
         />
-        <Button v-else text="Save author" type="primary" :disabled="!newAuthor.name.trim()" @click="createAuthor" />
+        <Button
+          v-else
+          :text="author ? 'Save changes' : 'Save author'"
+          type="primary"
+          :disabled="!newAuthor.name.trim()"
+          @click="createAuthor"
+        />
       </div>
     </div>
   </Modal>

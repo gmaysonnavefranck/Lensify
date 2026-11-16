@@ -3,8 +3,9 @@
   import Button from '@/Components/Button.vue';
   import Icon from '@/Components/Icon.vue';
   import { FootNote, Text } from '@/types/index';
-  import { computed, onMounted, onUnmounted, ref } from 'vue';
+  import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
   import { Link, router } from '@inertiajs/vue3';
+  import EditTextModal from './EditTextModal.vue';
 
   import axios from 'axios';
 
@@ -19,28 +20,16 @@
   const isAiGenerated = ref<boolean>(false);
   const newFootnote = ref<string>('');
   const aiError = ref<string>('');
-  const selectedTextPosition = ref<{ top: number; left: number } | null>(null);
+  const selectedTextPosition = ref<{ top: number; bottom: number; centerX: number } | null>(null);
+  const popupPosition = ref({ top: '-9999px', left: '-9999px' });
   const contentContainer = ref<HTMLElement | null>(null);
   const selectionPopup = ref<HTMLElement | null>(null);
-  const isTranslationMenuOpen = ref<boolean>(false);
-  const selectedTranslation = ref<{ language: string; id: number; content: string }>({
-    language: '',
-    id: 0,
-    content: '',
-  });
 
   const props = defineProps<textProps>();
 
   defineOptions({ layout: AuthLayout });
 
-  onMounted(() => {
-    selectedTranslation.value = {
-      id: props.text.id,
-      language: props.text.language || 'Unknown language',
-      content: props.text.content,
-    };
-    document.addEventListener('mouseup', onMouseUp);
-  });
+  onMounted(() => document.addEventListener('mouseup', onMouseUp));
 
   onUnmounted(() => document.removeEventListener('mouseup', onMouseUp));
 
@@ -55,6 +44,7 @@
 
     vocabState.value = 'idle';
     savedWord.value = null;
+    savedQuote.value = null;
 
     if (!text || !range || !contentContainer.value?.contains(range.commonAncestorContainer)) {
       selectedText.value = '';
@@ -64,8 +54,34 @@
 
     const rect = range.getBoundingClientRect();
     selectedText.value = text;
-    selectedTextPosition.value = { top: rect.bottom, left: rect.left + rect.width / 2 };
+    selectedTextPosition.value = { top: rect.top, bottom: rect.bottom, centerX: rect.left + rect.width / 2 };
   }
+
+  // Keep the popup fully inside the viewport: clamp sideways, flip above the selection if there's no room below
+  function placePopup() {
+    const el = selectionPopup.value;
+    const anchor = selectedTextPosition.value;
+    if (!el || !anchor || isWritingNote.value) return;
+
+    const margin = 8;
+    const { offsetWidth: width, offsetHeight: height } = el;
+    const left = Math.min(Math.max(anchor.centerX - width / 2, margin), window.innerWidth - width - margin);
+    let top = anchor.bottom + margin;
+    if (top + height > window.innerHeight - margin) top = Math.max(anchor.top - height - margin, margin);
+
+    popupPosition.value = { top: `${top}px`, left: `${left}px` };
+  }
+
+  let popupObserver: ResizeObserver | null = null;
+  watch(selectionPopup, (el) => {
+    popupObserver?.disconnect();
+    if (el) {
+      popupObserver = new ResizeObserver(placePopup);
+      popupObserver.observe(el);
+    }
+  });
+  watch(selectedTextPosition, () => nextTick(placePopup));
+  onUnmounted(() => popupObserver?.disconnect());
 
   const vocabState = ref<'idle' | 'saving' | 'saved'>('idle');
   const savedWord = ref<{ word: string; definition: string | null; alreadySaved: boolean } | null>(null);
@@ -104,9 +120,21 @@
     vocabState.value = 'saved';
   }
 
+  const savedQuote = ref<'saved' | 'already' | null>(null);
+
+  async function saveQuote() {
+    try {
+      const { data } = await axios.post('/quotes', { content: selectedText.value, text_id: props.text.id });
+      savedQuote.value = data.alreadySaved ? 'already' : 'saved';
+    } catch {
+      alert("Couldn't save the quote. Please try again.");
+    }
+  }
+
   function closePopup() {
     vocabState.value = 'idle';
     savedWord.value = null;
+    savedQuote.value = null;
     selectedText.value = '';
     selectedTextPosition.value = null;
   }
@@ -165,21 +193,6 @@
     document.getElementById(`note-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 
-  const allLanguages = computed(() => {
-    const translations: { language: string; id: number; content: string }[] =
-      props.text.translations?.map((translation) => ({
-        language: translation.language as string,
-        id: translation.id,
-        content: translation.content,
-      })) || [];
-    translations.unshift({
-      id: props.text.id,
-      language: props.text.language || 'Unknown language',
-      content: props.text.content,
-    });
-    return translations;
-  });
-
   async function generateExplanation() {
     isGeneratingExplanation.value = true;
     aiError.value = '';
@@ -219,11 +232,12 @@
     closeCreateFootnoteMenu();
   }
 
-  async function associateAuthor() {
-    await axios.post(`/texts/${props.text.id}/assign-author`, {
-      author_id: 1,
-    });
-    router.reload();
+  const isEditingText = ref(false);
+
+  function deleteText() {
+    const notes = props.text.text_notes?.length ?? 0;
+    const warning = notes ? ` Its ${notes} footnote${notes === 1 ? '' : 's'} will be deleted too.` : '';
+    if (confirm(`Delete “${props.text.title}”?${warning}`)) router.delete(`/texts/${props.text.id}`);
   }
 
   function goBack() {
@@ -245,47 +259,19 @@
 </script>
 
 <template>
-  <Head title="Texts" />
+  <Head :title="text.title" />
   <div class="flex h-16 items-center justify-between border-b border-gray-200 px-6">
     <div class="flex cursor-pointer select-none items-center gap-2">
       <Icon icon="chevronLeft" class="h-5 w-5 text-textSecondary" />
       <span @click="goBack">Back to Texts</span>
     </div>
-    <div class="flex cursor-pointer items-center gap-4">
-      <div class="relative" @click="isTranslationMenuOpen = !isTranslationMenuOpen">
-        <Button type="ghost" class="flex select-none items-center gap-2">
-          <Icon icon="globe" class="h-5 w-5 text-textSecondary" />
-          <span class="text-textSecondary">{{ selectedTranslation.language }}</span>
-          <Icon
-            icon="chevronDown"
-            class="h-5 w-5 transform text-textSecondary transition-transform"
-            :class="!isTranslationMenuOpen ? 'rotate-180' : ''"
-          />
-        </Button>
-        <div
-          v-show="isTranslationMenuOpen"
-          class="absolute right-0 top-full z-50 mt-1 w-48 rounded-md border border-gray-200 bg-white py-1 shadow-lg"
-        >
-          <div
-            class="text-sem flex items-center justify-between px-4 py-2 text-left hover:bg-gray-100"
-            v-for="language in allLanguages"
-            :key="language.id"
-            @click="selectedTranslation = language"
-          >
-            {{ language.language }}
-            <div class="h-2 w-2 rounded-full bg-primary" v-if="selectedTranslation.id === language.id"></div>
-          </div>
-          <hr class="my-1" />
-          <div
-            class="flex w-full items-center gap-2 px-4 py-2 text-left text-sm hover:bg-gray-100"
-            style="color: rgb(79, 109, 158)"
-          >
-            <Icon icon="plus" class="h-4 w-4 text-textSecondary" />
-            Request translation
-          </div>
-        </div>
-      </div>
-      <Button type="ghost" icon="pen" iconClass="h-[20px] w-[20px]" />
+    <div class="flex items-center gap-4">
+      <span v-if="text.language" class="flex items-center gap-2 text-sm text-textSecondary">
+        <Icon icon="globe" class="h-4 w-4" />
+        {{ text.language }}
+      </span>
+      <Button type="outline" icon="squarePen" text="Edit" @click="isEditingText = true" />
+      <Button type="danger" icon="trash" text="Delete" @click="deleteText" />
     </div>
   </div>
   <div class="flex h-[calc(100vh-136px)] max-h-[calc(100vh-136px)] w-full">
@@ -295,8 +281,8 @@
       </p>
       <p class="mb-8 text-lg capitalize text-textSecondary">by {{ text.author?.name || 'Unknown author' }}</p>
       <div class="max-w-none select-text overflow-y-auto text-lg leading-relaxed text-textPrimary">
-        <p ref="contentContainer" class="whitespace-pre-wrap"
-          ><template v-for="(segment, i) in contentSegments" :key="i"
+        <p ref="contentContainer" class="whitespace-pre-wrap">
+          <template v-for="(segment, i) in contentSegments" :key="i"
             ><mark
               v-if="segment.noteId"
               :data-n="segment.number"
@@ -307,7 +293,8 @@
               @click="focusNote(segment.noteId)"
               >{{ segment.text }}</mark
             ><template v-else>{{ segment.text }}</template></template
-          ></p>
+          >
+        </p>
       </div>
     </div>
     <div class="flex w-1/2 flex-col bg-gray-50 p-12">
@@ -343,7 +330,13 @@
                   class="flex shrink-0 gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100"
                 >
                   <Button type="ghost" icon="squarePen" class="!p-1.5" title="Edit" @click="startEditing(footNote)" />
-                  <Button type="ghost" icon="trash" class="!p-1.5 hover:!text-error" title="Delete" @click="deleteNote(footNote)" />
+                  <Button
+                    type="ghost"
+                    icon="trash"
+                    class="!p-1.5 hover:!text-error"
+                    title="Delete"
+                    @click="deleteNote(footNote)"
+                  />
                 </div>
               </div>
               <div v-if="editingNoteId === footNote.id">
@@ -404,18 +397,27 @@
   <div
     v-if="selectedTextPosition && selectedText"
     ref="selectionPopup"
-    class="fixed z-50 -translate-x-1/2 transform rounded-lg border border-gray-200 bg-white p-2 shadow-lg"
-    :class="isWritingNote ? 'max-h-[90vh] -translate-y-1/2 overflow-y-auto' : 'mt-2'"
-    :style="
-      isWritingNote
-        ? { top: '50%', left: '50%' }
-        : { top: `${selectedTextPosition.top}px`, left: `${selectedTextPosition.left}px` }
-    "
+    class="fixed z-50 max-w-[calc(100vw-16px)] rounded-lg border border-gray-200 bg-white p-2 shadow-lg"
+    :class="isWritingNote ? 'max-h-[90vh] -translate-x-1/2 -translate-y-1/2 transform overflow-y-auto' : ''"
+    :style="isWritingNote ? { top: '50%', left: '50%' } : popupPosition"
   >
-    <div v-if="!isGeneratingExplanation && !isWritingNote && vocabState === 'idle'" class="flex gap-2">
-      <Button type="ghost" icon="squarePen" @click="isWritingNote = true"> Write Note </Button>
-      <Button v-if="canAddWord" type="ghost" icon="bookA" @click="addToVocabulary">Add to vocabulary</Button>
-      <Button icon="sparkles" @click="generateExplanation">Generate Analysis</Button>
+    <div
+      v-if="!isGeneratingExplanation && !isWritingNote && vocabState === 'idle' && !savedQuote"
+      class="flex flex-wrap gap-1"
+    >
+      <Button type="ghost" icon="squarePen" title="Write your own footnote" @click="isWritingNote = true">Note</Button>
+      <Button type="ghost" icon="quotes" title="Save as a quote" @click="saveQuote">Quote</Button>
+      <Button v-if="canAddWord" type="ghost" icon="bookA" title="Add to vocabulary" @click="addToVocabulary">
+        Word
+      </Button>
+      <Button icon="sparkles" title="Generate an AI analysis" @click="generateExplanation">Analyze</Button>
+    </div>
+    <div v-if="savedQuote" class="flex items-center gap-4 px-2 py-1 text-sm">
+      <span class="flex items-center gap-1 text-success">
+        <Icon icon="check" class="h-4 w-4" />
+        {{ savedQuote === 'already' ? 'Already in your quotes' : 'Quote saved' }}
+      </span>
+      <Link href="/quotes" class="font-medium text-primary hover:underline">Open quotes →</Link>
     </div>
     <div v-if="vocabState === 'saving'" class="flex items-center gap-2 px-2 py-1">
       <Icon icon="loading" class="h-5 w-5 animate-spin text-primary" />
@@ -461,4 +463,5 @@
       </div>
     </div>
   </div>
+  <EditTextModal v-if="isEditingText" :text="text" @close="isEditingText = false" />
 </template>

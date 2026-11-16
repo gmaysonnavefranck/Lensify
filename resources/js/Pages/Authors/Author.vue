@@ -4,8 +4,12 @@
   import Icon from '@/Components/Icon.vue';
   import { Author } from '@/types/index';
   import { Link, router } from '@inertiajs/vue3';
+  import { ref } from 'vue';
+  import NewAuthorModal from './NewAuthorModal.vue';
 
   const props = defineProps<{ author: Author }>();
+
+  const isEditing = ref(false);
 
   defineOptions({ layout: AuthLayout });
 
@@ -32,7 +36,10 @@
           <Icon icon="chevronLeft" class="h-5 w-5" />
           <span class="text-sm font-medium">Back to Authors</span>
         </Link>
-        <Button type="danger" text="Delete author" @click="deleteAuthor" />
+        <div class="flex gap-2">
+          <Button type="outline" icon="squarePen" text="Edit" @click="isEditing = true" />
+          <Button type="danger" icon="trash" text="Delete" @click="deleteAuthor" />
+        </div>
       </div>
 
       <header class="card-background relative overflow-hidden rounded-2xl px-8 py-10 text-center shadow-md md:py-12">
@@ -139,6 +146,7 @@
       </div>
     </div>
   </div>
+  <NewAuthorModal v-if="isEditing" :show-add-author-modal="isEditing" :author="author" @close="isEditing = false" />
 </template>
 
 <style lang="postcss" scoped>

@@ -53,53 +53,7 @@ class AuthorController extends Controller
      */
     public function store(Request $request)
     {
-        // Validate the form input
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'genres' => 'array',
-            'genres.*' => 'string|max:64',
-            'themes' => 'array',
-            'themes.*' => 'string|max:64',
-            'period' => 'nullable|string|max:64',
-            'key_facts' => 'array',
-            'key_facts.*' => 'string',
-            'born_year' => 'nullable|string|max:10',
-            'death_year' => 'nullable|string|max:10',
-            'famous_works' => 'array',
-            'famous_works.*' => 'string',
-            'nationality' => 'nullable|string|max:30',
-        ]);
-
-        // Create the author
-        $newAuthor = Author::create([
-            'name' => $validated['name'],
-            'key_facts' => json_encode($validated['key_facts'] ?? []),
-            'born_year' => $validated['born_year'] ?? null,
-            'death_year' => $validated['death_year'] ?? null,
-            'famous_works' => json_encode($validated['famous_works'] ?? []),
-            'nationality' => $validated['nationality'] ?? null,
-            'user_id' => Auth::user()->id,
-        ]);
-
-        $newGenres = [];
-        foreach ($validated['genres'] ?? [] as $genre) {
-            $newGenres[] = Genre::firstOrCreate(['name' => $genre, 'user_id' => Auth::user()->id])->id;
-        }
-
-        $newAuthor->genres()->sync($newGenres);
-
-        $newThemes = [];
-        foreach ($validated['themes'] ?? [] as $theme) {
-            $newThemes[] = Theme::firstOrCreate(['name' => $theme, 'user_id' => Auth::user()->id])->id;
-        }
-
-        $newAuthor->themes()->sync($newThemes);
-
-        if (! empty($validated['period'])) {
-            $newAuthor->literaryPeriods()->sync(
-                LiteraryPeriod::firstOrCreate(['name' => $validated['period'], 'user_id' => Auth::user()->id])->id
-            );
-        }
+        $this->save(new Author(['user_id' => Auth::id()]), $request);
 
         return redirect()->route('authors.index');
     }
@@ -114,29 +68,13 @@ class AuthorController extends Controller
         return Inertia::render('Authors/Author', ['author' => $this->present($author)]);
     }
 
-    private function present(Author $author): array
-    {
-        return [
-            'id' => $author->id,
-            'name' => $author->name,
-            'key_facts' => json_decode($author->key_facts ?? '[]'),
-            'born_year' => $author->born_year,
-            'death_year' => $author->death_year,
-            'famous_works' => json_decode($author->famous_works ?? '[]'),
-            'nationality' => $author->nationality,
-            'genres' => $author->genres->map->only(['id', 'name']),
-            'themes' => $author->themes->map->only(['id', 'name']),
-            'literary_periods' => $author->literaryPeriods->map->only(['id', 'name']),
-            'texts' => $author->texts->map->only(['id', 'title', 'year', 'type']),
-        ];
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(Request $request, Author $author)
     {
-        //
+        abort_unless($author->user_id === Auth::id(), 404);
+
+        $this->save($author, $request);
+
+        return back();
     }
 
     /**
@@ -190,5 +128,58 @@ class AuthorController extends Controller
             'message' => 'Texts successfully linked to the author.',
             'author' => $author->load('texts'), // Load texts for confirmation
         ]);
+    }
+
+    // Shared by create and edit: validates the form, saves the author and syncs genres, themes and period
+    private function save(Author $author, Request $request): void
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'genres' => 'array',
+            'genres.*' => 'string|max:64',
+            'themes' => 'array',
+            'themes.*' => 'string|max:64',
+            'period' => 'nullable|string|max:64',
+            'key_facts' => 'array',
+            'key_facts.*' => 'string',
+            'born_year' => 'nullable|string|max:10',
+            'death_year' => 'nullable|string|max:10',
+            'famous_works' => 'array',
+            'famous_works.*' => 'string',
+            'nationality' => 'nullable|string|max:30',
+        ]);
+
+        $author->fill([
+            'name' => $validated['name'],
+            'key_facts' => json_encode($validated['key_facts'] ?? []),
+            'born_year' => $validated['born_year'] ?? null,
+            'death_year' => $validated['death_year'] ?? null,
+            'famous_works' => json_encode($validated['famous_works'] ?? []),
+            'nationality' => $validated['nationality'] ?? null,
+        ])->save();
+
+        $owned = fn (string $model, array $names) => collect($names)
+            ->map(fn ($name) => $model::firstOrCreate(['name' => $name, 'user_id' => Auth::id()])->id);
+
+        $author->genres()->sync($owned(Genre::class, $validated['genres'] ?? []));
+        $author->themes()->sync($owned(Theme::class, $validated['themes'] ?? []));
+        $author->literaryPeriods()->sync($owned(LiteraryPeriod::class, array_filter([$validated['period'] ?? null])));
+    }
+
+    private function present(Author $author): array
+    {
+        return [
+            'id' => $author->id,
+            'name' => $author->name,
+            'key_facts' => json_decode($author->key_facts ?? '[]'),
+            'born_year' => $author->born_year,
+            'death_year' => $author->death_year,
+            'famous_works' => json_decode($author->famous_works ?? '[]'),
+            'nationality' => $author->nationality,
+            'genres' => $author->genres->map->only(['id', 'name']),
+            'themes' => $author->themes->map->only(['id', 'name']),
+            'literary_periods' => $author->literaryPeriods->map->only(['id', 'name']),
+            'texts' => $author->texts->map->only(['id', 'title', 'year', 'type']),
+        ];
     }
 }

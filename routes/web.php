@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthorController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\QuoteController;
 use App\Http\Controllers\TextController;
 use App\Http\Controllers\TextNoteController;
 use App\Http\Controllers\VocabularyController;
@@ -17,6 +18,8 @@ Route::middleware(['auth', 'verified'])->prefix('texts')->group(function () {
     Route::post('/', [TextController::class, 'store']);
     Route::get('/', [TextController::class, 'index'])->name('texts.index');
     Route::get('{id}', [TextController::class, 'show'])->name('texts.show');
+    Route::patch('{text}', [TextController::class, 'update']);
+    Route::delete('{text}', [TextController::class, 'destroy']);
 
     Route::post('{text}/assign-author', [TextController::class, 'assignAuthor']);
     Route::post('{text}/footnote', [TextController::class, 'associateFootnote']);
@@ -31,12 +34,17 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::post('vocabulary', [VocabularyController::class, 'store']);
     Route::patch('vocabulary/{vocabularyWord}', [VocabularyController::class, 'update']);
     Route::delete('vocabulary/{vocabularyWord}', [VocabularyController::class, 'destroy']);
+
+    Route::get('quotes', [QuoteController::class, 'index'])->name('quotes.index');
+    Route::post('quotes', [QuoteController::class, 'store']);
+    Route::delete('quotes/{quote}', [QuoteController::class, 'destroy']);
 });
 
 Route::middleware(['auth', 'verified'])->prefix('authors')->group(function () {
     Route::post('/', [AuthorController::class, 'store']);
     Route::get('/', [AuthorController::class, 'index'])->name('authors.index');
     Route::get('{id}', [AuthorController::class, 'show'])->name('authors.show');
+    Route::patch('{author}', [AuthorController::class, 'update']);
     Route::delete('{author}', [AuthorController::class, 'destroy'])->name('authors.destroy');
 
     Route::post('{author}/assign-texts', [AuthorController::class, 'assignTexts']);
@@ -45,14 +53,6 @@ Route::middleware(['auth', 'verified'])->prefix('authors')->group(function () {
 
 Route::middleware(['auth', 'verified'])->prefix('chat')->group(function () {
     Route::post('analyze-text', [ChatController::class, 'analyzeText']);
-});
-
-Route::get('quotes', function () {
-    return Inertia::render('Quotes/Quotes');
-});
-
-Route::get('books', function () {
-    return Inertia::render('Books/Books');
 });
 
 Route::middleware('auth')->group(function () {

@@ -79,6 +79,13 @@ export type VocabularyWord = {
   text?: { id: number; title: string } | null;
 };
 
+export type Quote = {
+  id: number;
+  content: string;
+  created_at: string;
+  text?: { id: number; title: string; author?: { id: number; name: string } | null } | null;
+};
+
 export type Genre = {
   id: number;
   name: string;
