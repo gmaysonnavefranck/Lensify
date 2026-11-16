@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Auth;
 
 class Author extends Model
 {
@@ -16,9 +17,21 @@ class Author extends Model
         return $this->belongsTo(User::class);
     }
 
+    // Standalone texts only; book chapters are reached through their book
     public function texts()
     {
-        return $this->hasMany(Text::class);
+        return $this->hasMany(Text::class)->whereNull('book_id');
+    }
+
+    // The current user's author with this name, created if missing; null for a blank name
+    public static function idFor(?string $name): ?int
+    {
+        $name = trim($name ?? '');
+        if ($name === '') {
+            return null;
+        }
+
+        return static::firstOrCreate(['name' => $name, 'user_id' => Auth::id()])->id;
     }
 
     public function genres()

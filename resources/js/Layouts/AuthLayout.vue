@@ -21,6 +21,12 @@
       <div class="flex">
         <nav class="mr-12 flex gap-6 self-center">
           <NavLink text="Texts" href="/texts" icon="texts" :selected="isPageSelected('Texts/Texts')" />
+          <NavLink
+            text="Books"
+            href="/books"
+            icon="books"
+            :selected="isPageSelected('Books/Books') || isPageSelected('Books/Book')"
+          />
           <NavLink text="Authors" href="/authors" icon="author" :selected="isPageSelected('Authors/Authors')" />
           <NavLink text="Quotes" href="/quotes" icon="quotes" :selected="isPageSelected('Quotes/Quotes')" />
           <NavLink

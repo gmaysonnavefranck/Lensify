@@ -61,6 +61,32 @@ export type Text = {
   text_notes?: FootNote[];
 };
 
+export type Book = {
+  id: number;
+  title: string;
+  language?: string | null;
+  author?: { id: number; name: string } | null;
+  chapters_count?: number;
+  last_read?: { id: number; title: string } | null;
+};
+
+export type Chapter = {
+  id: number;
+  title: string;
+  position: number;
+  text_notes_count: number;
+};
+
+// Where a text sits in its book; null for standalone texts
+export type ChapterNav = {
+  id: number;
+  title: string;
+  position: number;
+  total: number;
+  prev: { id: number; title: string } | null;
+  next: { id: number; title: string } | null;
+};
+
 export type FootNote = {
   id: number;
   note: string;

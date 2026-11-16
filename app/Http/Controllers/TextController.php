@@ -19,6 +19,7 @@ class TextController extends Controller
             'texts' => Text::query()
                 ->where('user_id', Auth::user()->id)
                 ->where('translation_for', null)
+                ->whereNull('book_id')
                 ->when($request->input('search'), function ($query, $search) {
                     $query->where('title', 'like', "%{$search}%");
                 })
@@ -66,7 +67,7 @@ class TextController extends Controller
             'year' => $request->input('year'),
             'type' => $request->input('type'),
             'language' => $request->input('language'),
-            'author_id' => $this->authorIdFor($validated['author_name'] ?? null),
+            'author_id' => Author::idFor($validated['author_name'] ?? null),
             'user_id' => Auth::id(),
         ]);
 
@@ -78,12 +79,12 @@ class TextController extends Controller
      */
     public function show(Request $request)
     {
-        return Inertia::render('Texts/Text', [
-            'text' => Text::with(['author', 'textNotes'])
-                ->with(['translations:id,translation_for,language'])
-                ->where('user_id', Auth::id())
-                ->findOrFail($request->route('id')),
-        ]);
+        $text = Text::with(['author', 'textNotes'])
+            ->with(['translations:id,translation_for,language'])
+            ->where('user_id', Auth::id())
+            ->findOrFail($request->route('id'));
+
+        return Inertia::render('Texts/Text', ['text' => $text, 'book' => $this->chapterNav($text)]);
     }
 
     /**
@@ -107,7 +108,7 @@ class TextController extends Controller
             'year' => $validated['year'] ?? null,
             'type' => $validated['type'] ?? null,
             'language' => $validated['language'] ?? null,
-            'author_id' => $this->authorIdFor($validated['author_name'] ?? null),
+            'author_id' => Author::idFor($validated['author_name'] ?? null),
         ]);
 
         return back();
@@ -124,7 +125,7 @@ class TextController extends Controller
         $text->textNotes()->delete();
         $text->delete();
 
-        return redirect()->route('texts.index');
+        return $text->book_id ? redirect()->route('books.show', $text->book_id) : redirect()->route('texts.index');
     }
 
     public function getTextInformation(Request $request)
@@ -183,15 +184,24 @@ class TextController extends Controller
         return response()->json(['text' => Text::with('author')->with('textNotes')->findOrFail($text->id)]);
     }
 
-    // Reuse the user's author with this name, or create it
-    private function authorIdFor(?string $name): ?int
+    // Where a chapter sits in its book, for the breadcrumb and previous/next links
+    private function chapterNav(Text $text): ?array
     {
-        $name = trim($name ?? '');
-        if ($name === '') {
+        if (! $text->book_id) {
             return null;
         }
 
-        return (Author::where('user_id', Auth::id())->where('name', $name)->first()
-            ?? Author::create(['name' => $name, 'user_id' => Auth::id()]))->id;
+        $book = $text->book;
+        $book->update(['last_read_text_id' => $text->id]);
+        $siblings = $book->chapters();
+
+        return [
+            'id' => $book->id,
+            'title' => $book->title,
+            'position' => (clone $siblings)->where('position', '<=', $text->position)->count(),
+            'total' => (clone $siblings)->count(),
+            'prev' => (clone $siblings)->where('position', '<', $text->position)->reorder('position', 'desc')->first(['id', 'title']),
+            'next' => (clone $siblings)->where('position', '>', $text->position)->first(['id', 'title']),
+        ];
     }
 }

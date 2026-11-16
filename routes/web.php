@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AuthorController;
+use App\Http\Controllers\BookController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\QuoteController;
@@ -24,6 +25,14 @@ Route::middleware(['auth', 'verified'])->prefix('texts')->group(function () {
     Route::post('{text}/assign-author', [TextController::class, 'assignAuthor']);
     Route::post('{text}/footnote', [TextController::class, 'associateFootnote']);
     Route::post('fetch-text', [TextController::class, 'getTextInformation']);
+});
+
+Route::middleware(['auth', 'verified'])->prefix('books')->group(function () {
+    Route::get('/', [BookController::class, 'index'])->name('books.index');
+    Route::post('/', [BookController::class, 'store']);
+    Route::get('{book}', [BookController::class, 'show'])->name('books.show');
+    Route::patch('{book}', [BookController::class, 'update']);
+    Route::delete('{book}', [BookController::class, 'destroy']);
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {

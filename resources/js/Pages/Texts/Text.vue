@@ -2,7 +2,7 @@
   import AuthLayout from '@/Layouts/AuthLayout.vue';
   import Button from '@/Components/Button.vue';
   import Icon from '@/Components/Icon.vue';
-  import { FootNote, Text } from '@/types/index';
+  import { ChapterNav, FootNote, Text } from '@/types/index';
   import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
   import { Link, router } from '@inertiajs/vue3';
   import EditTextModal from './EditTextModal.vue';
@@ -11,6 +11,7 @@
 
   interface textProps {
     text: Text;
+    book?: ChapterNav | null;
     response?: string;
   }
 
@@ -261,9 +262,32 @@
 <template>
   <Head :title="text.title" />
   <div class="flex h-16 items-center justify-between border-b border-gray-200 px-6">
-    <div class="flex cursor-pointer select-none items-center gap-2">
+    <Link v-if="book" :href="`/books/${book.id}`" class="flex min-w-0 select-none items-center gap-2">
+      <Icon icon="chevronLeft" class="h-5 w-5 shrink-0 text-textSecondary" />
+      <span class="truncate">{{ book.title }}</span>
+    </Link>
+    <div v-else class="flex cursor-pointer select-none items-center gap-2">
       <Icon icon="chevronLeft" class="h-5 w-5 text-textSecondary" />
       <span @click="goBack">Back to Texts</span>
+    </div>
+    <div v-if="book" class="flex shrink-0 select-none items-center gap-1 text-sm text-textSecondary">
+      <Link
+        v-if="book.prev"
+        :href="`/texts/${book.prev.id}`"
+        :title="book.prev.title"
+        class="rounded p-1.5 hover:bg-gray-100 hover:text-primary"
+      >
+        <Icon icon="chevronLeft" class="h-4 w-4" />
+      </Link>
+      <span class="px-1 tabular-nums">Chapter {{ book.position }} of {{ book.total }}</span>
+      <Link
+        v-if="book.next"
+        :href="`/texts/${book.next.id}`"
+        :title="book.next.title"
+        class="rounded p-1.5 hover:bg-gray-100 hover:text-primary"
+      >
+        <Icon icon="chevronRight" class="h-4 w-4" />
+      </Link>
     </div>
     <div class="flex items-center gap-4">
       <span v-if="text.language" class="flex items-center gap-2 text-sm text-textSecondary">
@@ -280,7 +304,7 @@
         {{ text.title }}
       </p>
       <p class="mb-8 text-lg capitalize text-textSecondary">by {{ text.author?.name || 'Unknown author' }}</p>
-      <div class="max-w-none select-text overflow-y-auto text-lg leading-relaxed text-textPrimary">
+      <div scroll-region class="max-w-none select-text overflow-y-auto text-lg leading-relaxed text-textPrimary">
         <p ref="contentContainer" class="whitespace-pre-wrap">
           <template v-for="(segment, i) in contentSegments" :key="i"
             ><mark
@@ -295,6 +319,17 @@
             ><template v-else>{{ segment.text }}</template></template
           >
         </p>
+        <Link
+          v-if="book?.next"
+          :href="`/texts/${book.next.id}`"
+          class="mt-12 flex select-none items-center justify-between gap-4 rounded-lg border border-gray-200 px-5 py-4 text-base hover:border-primary/40 hover:bg-gray-50"
+        >
+          <span class="min-w-0">
+            <span class="block text-xs uppercase tracking-wide text-textSecondary">Next chapter</span>
+            <span class="block truncate font-medium text-textPrimary">{{ book.next.title }}</span>
+          </span>
+          <Icon icon="chevronRight" class="h-5 w-5 shrink-0 text-primary" />
+        </Link>
       </div>
     </div>
     <div class="flex w-1/2 flex-col bg-gray-50 p-12">

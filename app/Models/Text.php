@@ -21,6 +21,11 @@ class Text extends Model
         return $this->belongsTo(Author::class);
     }
 
+    public function book()
+    {
+        return $this->belongsTo(Book::class);
+    }
+
     public function textNotes()
     {
         return $this->hasMany(TextNote::class);
