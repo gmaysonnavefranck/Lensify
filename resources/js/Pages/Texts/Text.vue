@@ -4,7 +4,7 @@
   import Icon from '@/Components/Icon.vue';
   import { ChapterNav, FootNote, Text } from '@/types/index';
   import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
-  import { Link, router } from '@inertiajs/vue3';
+  import { Link, router, usePage } from '@inertiajs/vue3';
   import EditTextModal from './EditTextModal.vue';
 
   import axios from 'axios';
@@ -40,6 +40,7 @@
     if (isWritingNote.value || isGeneratingExplanation.value || vocabState.value === 'saving') return;
 
     const selection = window.getSelection();
+    if (selection && !selection.isCollapsed) clampSelectionToPage(selection);
     const text = selection?.toString().trim();
     const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
 
@@ -189,6 +190,133 @@
     router.delete(`/notes/${note.id}`, { preserveScroll: true, preserveState: true });
   }
 
+  // --- Paged reading: the text flows into CSS columns, one column per page, and turning a page slides them ---
+  const PAGE_RATIO = Math.SQRT2; // A4 proportions
+  const PAGE_GAP = 48;
+  const FONT_MIN = 14;
+  const FONT_MAX = 26;
+
+  const stage = ref<HTMLElement | null>(null);
+  const pageWindow = ref<HTMLElement | null>(null);
+  const flow = ref<HTMLElement | null>(null);
+  const pageSize = ref({ width: 0, height: 0 });
+  const pageMargin = computed(() => ({ x: pageSize.value.width * 0.1, y: pageSize.value.height * 0.075 }));
+  const textArea = computed(() => ({
+    width: pageSize.value.width - 2 * pageMargin.value.x,
+    height: pageSize.value.height - 2 * pageMargin.value.y,
+  }));
+  const page = ref(0);
+  const pages = ref(1);
+
+  const readStoredFont = () => {
+    try {
+      return Number(localStorage.getItem('lensify.fontSize')) || 18;
+    } catch {
+      return 18;
+    }
+  };
+  const fontSize = ref(readStoredFont());
+  watch(fontSize, (size) => {
+    try {
+      localStorage.setItem('lensify.fontSize', String(size));
+    } catch {
+      // Private mode: the size just isn't remembered
+    }
+  });
+
+  // Fit the largest A4 page in the reading area, then count the columns the text fills.
+  // `keep` says where to land: the same point in the text, or the start/end of a newly opened chapter.
+  async function paginate(keep: 'position' | 'start' | 'end') {
+    if (!stage.value) return;
+    const progress = pages.value > 1 ? page.value / (pages.value - 1) : 0;
+
+    const height = Math.min(stage.value.clientHeight, stage.value.clientWidth * PAGE_RATIO);
+    pageSize.value = { width: height / PAGE_RATIO, height };
+    await nextTick();
+    if (!flow.value) return;
+
+    const stride = textArea.value.width + PAGE_GAP;
+    pages.value = Math.max(1, Math.round((flow.value.scrollWidth + PAGE_GAP) / stride));
+    const target = keep === 'start' ? 0 : keep === 'end' ? pages.value - 1 : Math.round(progress * (pages.value - 1));
+    page.value = Math.min(target, pages.value - 1);
+  }
+
+  const inertiaPage = usePage();
+  const openingMode = () => (inertiaPage.url.includes('at=end') ? 'end' : 'start');
+
+  let stageObserver: ResizeObserver | null = null;
+  onMounted(() => {
+    document.fonts.ready.then(() => paginate(openingMode()));
+    stageObserver = new ResizeObserver(() => paginate('position'));
+    if (stage.value) stageObserver.observe(stage.value);
+    document.addEventListener('keydown', onKeyDown);
+  });
+  onUnmounted(() => {
+    stageObserver?.disconnect();
+    document.removeEventListener('keydown', onKeyDown);
+  });
+
+  // A new chapter opens at its start (or its end when stepping back); notes or text size keep the reading point
+  watch([() => props.text.id, contentSegments, fontSize], ([id], [oldId]) =>
+    paginate(id !== oldId ? openingMode() : 'position'),
+  );
+
+  function nextPage() {
+    if (page.value < pages.value - 1) page.value++;
+    else if (props.book?.next) router.visit(`/texts/${props.book.next.id}`);
+  }
+
+  function prevPage() {
+    if (page.value > 0) page.value--;
+    else if (props.book?.prev) router.visit(`/texts/${props.book.prev.id}?at=end`);
+  }
+
+  function onKeyDown(event: KeyboardEvent) {
+    const target = event.target as HTMLElement;
+    if (event.altKey || event.ctrlKey || event.metaKey || target.closest('input, textarea, [contenteditable]')) return;
+    if (isWritingNote.value || editingNoteId.value !== null || isEditingText.value) return;
+    if (event.key === 'ArrowRight' || event.key === 'PageDown') nextPage();
+    else if (event.key === 'ArrowLeft' || event.key === 'PageUp') prevPage();
+    else return;
+    event.preventDefault();
+  }
+
+  function caretAt(x: number, y: number): Range | null {
+    if (document.caretRangeFromPoint) return document.caretRangeFromPoint(x, y);
+    const position = (document as any).caretPositionFromPoint?.(x, y); // Firefox
+    if (!position) return null;
+    const range = document.createRange();
+    range.setStart(position.offsetNode, position.offset);
+    return range;
+  }
+
+  // Dragging past the page edge selects into the hidden pages; trim the selection to the visible page
+  // ponytail: a passage that runs onto the next page can't be selected whole; lower the text size for it
+  function clampSelectionToPage(selection: Selection) {
+    const box = pageWindow.value?.getBoundingClientRect();
+    if (!box || !selection.rangeCount) return;
+    const range = selection.getRangeAt(0);
+    if (!pageWindow.value!.contains(range.commonAncestorContainer)) return;
+    const first = caretAt(box.left + 1, box.top + 1);
+    const last = caretAt(box.right - 1, box.bottom - 1);
+    if (first && range.compareBoundaryPoints(Range.START_TO_START, first) < 0) {
+      range.setStart(first.startContainer, first.startOffset);
+    }
+    if (last && range.compareBoundaryPoints(Range.END_TO_END, last) > 0) {
+      range.setEnd(last.startContainer, last.startOffset);
+    }
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  // Turn to the page where a footnote's marker sits
+  function showNoteInText(id: number) {
+    const mark = flow.value?.querySelector<HTMLElement>(`[data-note-id="${id}"]`);
+    if (!mark || !flow.value) return;
+    const offset = mark.getBoundingClientRect().left - flow.value.getBoundingClientRect().left;
+    page.value = Math.min(Math.floor(offset / (textArea.value.width + PAGE_GAP)), pages.value - 1);
+  }
+
   function focusNote(id: number) {
     activeNoteId.value = id;
     document.getElementById(`note-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -299,17 +427,38 @@
     </div>
   </div>
   <div class="flex h-[calc(100vh-136px)] max-h-[calc(100vh-136px)] w-full">
-    <div class="flex w-1/2 flex-col border-r border-gray-200 p-12">
-      <p class="mb-2 text-2xl font-medium text-textPrimary">
-        {{ text.title }}
-      </p>
-      <p class="mb-8 text-lg capitalize text-textSecondary">by {{ text.author?.name || 'Unknown author' }}</p>
-      <div scroll-region class="max-w-none select-text overflow-y-auto text-lg leading-relaxed text-textPrimary">
-        <p ref="contentContainer" class="whitespace-pre-wrap">
-          <template v-for="(segment, i) in contentSegments" :key="i"
-            ><mark
-              v-if="segment.noteId"
-              :data-n="segment.number"
+    <div class="flex w-1/2 flex-col items-center gap-3 border-r border-gray-200 bg-gray-100 px-6 pb-3 pt-6">
+      <div ref="stage" class="flex min-h-0 w-full flex-1 items-center justify-center">
+        <div
+          class="rounded-sm bg-white shadow-md"
+          :style="{
+            width: `${pageSize.width}px`,
+            height: `${pageSize.height}px`,
+            padding: `${pageMargin.y}px ${pageMargin.x}px`,
+          }"
+        >
+          <div ref="pageWindow" class="h-full w-full overflow-hidden" @scroll="pageWindow!.scrollLeft = 0">
+            <div
+              ref="flow"
+              class="h-full select-text font-newsreader leading-relaxed text-textPrimary transition-transform duration-200 ease-out"
+              :style="{
+                fontSize: `${fontSize}px`,
+                columnWidth: `${textArea.width}px`,
+                columnGap: `${PAGE_GAP}px`,
+                columnFill: 'auto',
+                transform: `translateX(-${page * (textArea.width + PAGE_GAP)}px)`,
+              }"
+            >
+              <p class="mb-1 text-[1.4em] font-medium leading-snug">{{ text.title }}</p>
+              <p class="mb-[1.5em] text-[0.9em] capitalize text-textSecondary">
+                {{ text.author?.name || 'Unknown author' }}
+              </p>
+              <p ref="contentContainer" class="whitespace-pre-wrap">
+                <template v-for="(segment, i) in contentSegments" :key="i"
+                  ><mark
+                    v-if="segment.noteId"
+                    :data-note-id="segment.noteId"
+                    :data-n="segment.number"
               class="cursor-pointer rounded-sm bg-transparent text-inherit underline decoration-primary/40 decoration-2 underline-offset-4 transition-colors after:ml-0.5 after:align-super after:text-xs after:font-semibold after:text-primary after:no-underline after:content-[attr(data-n)]"
               :class="activeNoteId === segment.noteId ? 'bg-primary/15 decoration-primary' : 'hover:bg-primary/10'"
               @mouseenter="activeNoteId = segment.noteId"
@@ -318,18 +467,53 @@
               >{{ segment.text }}</mark
             ><template v-else>{{ segment.text }}</template></template
           >
-        </p>
-        <Link
-          v-if="book?.next"
-          :href="`/texts/${book.next.id}`"
-          class="mt-12 flex select-none items-center justify-between gap-4 rounded-lg border border-gray-200 px-5 py-4 text-base hover:border-primary/40 hover:bg-gray-50"
-        >
-          <span class="min-w-0">
-            <span class="block text-xs uppercase tracking-wide text-textSecondary">Next chapter</span>
-            <span class="block truncate font-medium text-textPrimary">{{ book.next.title }}</span>
-          </span>
-          <Icon icon="chevronRight" class="h-5 w-5 shrink-0 text-primary" />
-        </Link>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div
+        class="grid w-full select-none grid-cols-[1fr_auto_1fr] items-center text-sm text-textSecondary"
+        :style="{ maxWidth: `${Math.max(pageSize.width, 320)}px` }"
+      >
+        <span />
+        <div class="flex items-center gap-1">
+          <button
+            class="rounded p-1.5 hover:bg-gray-200 hover:text-primary disabled:opacity-30 disabled:hover:bg-transparent"
+            :disabled="page === 0 && !book?.prev"
+            :title="page === 0 && book?.prev ? `Previous chapter: ${book.prev.title}` : 'Previous page (←)'"
+            @click="prevPage"
+          >
+            <Icon icon="chevronLeft" class="h-4 w-4" />
+          </button>
+          <span class="min-w-24 text-center tabular-nums">Page {{ page + 1 }} of {{ pages }}</span>
+          <button
+            class="rounded p-1.5 hover:bg-gray-200 hover:text-primary disabled:opacity-30 disabled:hover:bg-transparent"
+            :disabled="page === pages - 1 && !book?.next"
+            :title="page === pages - 1 && book?.next ? `Next chapter: ${book.next.title}` : 'Next page (→)'"
+            @click="nextPage"
+          >
+            <Icon icon="chevronRight" class="h-4 w-4" />
+          </button>
+        </div>
+        <div class="flex items-center justify-end gap-0.5">
+          <button
+            class="rounded px-2 py-1 text-xs hover:bg-gray-200 hover:text-primary disabled:opacity-30"
+            title="Smaller text"
+            :disabled="fontSize <= FONT_MIN"
+            @click="fontSize--"
+          >
+            A−
+          </button>
+          <button
+            class="rounded px-2 py-1 text-base hover:bg-gray-200 hover:text-primary disabled:opacity-30"
+            title="Larger text"
+            :disabled="fontSize >= FONT_MAX"
+            @click="fontSize++"
+          >
+            A+
+          </button>
+        </div>
       </div>
     </div>
     <div class="flex w-1/2 flex-col bg-gray-50 p-12">
@@ -352,6 +536,7 @@
           :class="activeNoteId === footNote.id ? 'border-primary shadow-md' : 'border-gray-200'"
           @mouseenter="activeNoteId = footNote.id"
           @mouseleave="activeNoteId = null"
+          @click="showNoteInText(footNote.id)"
         >
           <div class="flex gap-4">
             <div class="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full bg-slate-200">
