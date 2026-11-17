@@ -128,6 +128,17 @@ class TextController extends Controller
         return $text->book_id ? redirect()->route('books.show', $text->book_id) : redirect()->route('texts.index');
     }
 
+    // Remembers where the reader stopped, as a character offset (pages change with text size)
+    public function saveProgress(Request $request, Text $text)
+    {
+        abort_unless($text->user_id === Auth::id(), 404);
+
+        $validated = $request->validate(['offset' => 'required|integer|min:0']);
+        $text->updateQuietly(['read_offset' => min($validated['offset'], mb_strlen($text->content))]);
+
+        return response()->noContent();
+    }
+
     public function getTextInformation(Request $request)
     {
         $chatController = new ChatController;

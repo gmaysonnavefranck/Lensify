@@ -117,6 +117,20 @@ test('deleting a book removes its chapters and their footnotes', function () {
         ->and(TextNote::count())->toBe(0);
 });
 
+test('the reading point is saved per text, clamped and private', function () {
+    $user = User::factory()->create();
+    $text = Text::factory()->create(['user_id' => $user->id, 'content' => str_repeat('a', 100)]);
+
+    $this->actingAs($user)->patchJson("/texts/{$text->id}/progress", ['offset' => 42])->assertNoContent();
+    expect($text->fresh()->read_offset)->toBe(42);
+
+    $this->actingAs($user)->patchJson("/texts/{$text->id}/progress", ['offset' => 5000])->assertNoContent();
+    expect($text->fresh()->read_offset)->toBe(100);
+
+    $this->actingAs(User::factory()->create())->patchJson("/texts/{$text->id}/progress", ['offset' => 1])->assertNotFound();
+    expect($text->fresh()->read_offset)->toBe(100);
+});
+
 test('books are private', function () {
     $owner = User::factory()->create();
     $this->actingAs($owner)->post('/books', ['file' => makeEpub()]);

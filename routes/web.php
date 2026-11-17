@@ -21,6 +21,7 @@ Route::middleware(['auth', 'verified'])->prefix('texts')->group(function () {
     Route::get('{id}', [TextController::class, 'show'])->name('texts.show');
     Route::patch('{text}', [TextController::class, 'update']);
     Route::delete('{text}', [TextController::class, 'destroy']);
+    Route::patch('{text}/progress', [TextController::class, 'saveProgress']);
 
     Route::post('{text}/assign-author', [TextController::class, 'assignAuthor']);
     Route::post('{text}/footnote', [TextController::class, 'associateFootnote']);

@@ -59,6 +59,7 @@ export type Text = {
   translations?: Text[];
   translation_for?: number;
   text_notes?: FootNote[];
+  read_offset?: number;
 };
 
 export type Book = {

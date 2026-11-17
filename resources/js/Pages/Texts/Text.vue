@@ -224,11 +224,52 @@
     }
   });
 
+  // Page index for a horizontal screen position inside the flowing columns
+  function pageAt(left: number) {
+    const offset = left - flow.value!.getBoundingClientRect().left;
+    return Math.min(Math.max(Math.floor(offset / (textArea.value.width + PAGE_GAP)), 0), pages.value - 1);
+  }
+
+  // Character offset of the first word on the current page: the smallest offset whose page is this one.
+  // Measured from the layout, so it's right even mid page-turn animation.
+  function visibleOffset(): number {
+    if (page.value === 0) return 0;
+    let low = 0;
+    let high = props.text.content.length;
+    while (low < high) {
+      const mid = Math.floor((low + high) / 2);
+      if (pageOfOffset(mid) >= page.value) high = mid;
+      else low = mid + 1;
+    }
+    return low;
+  }
+
+  // The page showing a given character offset (whitespace has no reliable box, so measure the next visible char)
+  function pageOfOffset(offset: number): number {
+    const content = props.text.content;
+    while (offset < content.length && /\s/.test(content[offset])) offset++;
+    if (offset >= content.length) return pages.value - 1;
+    if (!contentContainer.value || offset <= 0) return 0;
+    const walker = document.createTreeWalker(contentContainer.value, NodeFilter.SHOW_TEXT);
+    // globalThis.Text is the DOM text node; plain `Text` here is the app's text type
+    type TextNode = globalThis.Text;
+    for (let node = walker.nextNode() as TextNode | null; node; node = walker.nextNode() as TextNode | null) {
+      if (offset < node.length) {
+        const range = document.createRange();
+        range.setStart(node, offset);
+        range.setEnd(node, offset + 1);
+        return pageAt(range.getBoundingClientRect().left);
+      }
+      offset -= node.length;
+    }
+    return pages.value - 1;
+  }
+
   // Fit the largest A4 page in the reading area, then count the columns the text fills.
-  // `keep` says where to land: the same point in the text, or the start/end of a newly opened chapter.
-  async function paginate(keep: 'position' | 'start' | 'end') {
+  // `keep`: stay on the same words, open at the start/end, or resume where the reader last stopped.
+  async function paginate(keep: 'position' | 'start' | 'end' | 'saved') {
     if (!stage.value) return;
-    const progress = pages.value > 1 ? page.value / (pages.value - 1) : 0;
+    const offset = keep === 'position' ? visibleOffset() : (props.text.read_offset ?? 0);
 
     const height = Math.min(stage.value.clientHeight, stage.value.clientWidth * PAGE_RATIO);
     pageSize.value = { width: height / PAGE_RATIO, height };
@@ -237,17 +278,40 @@
 
     const stride = textArea.value.width + PAGE_GAP;
     pages.value = Math.max(1, Math.round((flow.value.scrollWidth + PAGE_GAP) / stride));
-    const target = keep === 'start' ? 0 : keep === 'end' ? pages.value - 1 : Math.round(progress * (pages.value - 1));
-    page.value = Math.min(target, pages.value - 1);
+    page.value = keep === 'start' ? 0 : keep === 'end' ? pages.value - 1 : pageOfOffset(offset);
   }
 
   const inertiaPage = usePage();
-  const openingMode = () => (inertiaPage.url.includes('at=end') ? 'end' : 'start');
+  const openingMode = () => {
+    const at = new URLSearchParams(inertiaPage.url.split('?')[1]).get('at');
+    return at === 'end' ? 'end' : at === 'start' ? 'start' : 'saved';
+  };
+
+  // Save the reading point shortly after the reader turns a page (never on automatic page changes)
+  let saveTimer: ReturnType<typeof setTimeout> | undefined;
+  let lastSaved = props.text.read_offset ?? 0;
+  function scheduleSave() {
+    clearTimeout(saveTimer);
+    const textId = props.text.id;
+    saveTimer = setTimeout(() => {
+      const offset = visibleOffset();
+      if (textId !== props.text.id || offset === lastSaved) return;
+      lastSaved = offset;
+      axios.patch(`/texts/${textId}/progress`, { offset }).catch(() => {});
+    }, 800);
+  }
+  watch(
+    () => props.text.id,
+    () => (lastSaved = props.text.read_offset ?? 0),
+  );
+  onUnmounted(() => clearTimeout(saveTimer));
 
   let stageObserver: ResizeObserver | null = null;
   onMounted(() => {
-    document.fonts.ready.then(() => paginate(openingMode()));
-    stageObserver = new ResizeObserver(() => paginate('position'));
+    // Resizes only re-paginate after the first layout, so they can't race the restore of the saved page
+    let restored = false;
+    document.fonts.ready.then(() => paginate(openingMode())).then(() => (restored = true));
+    stageObserver = new ResizeObserver(() => restored && paginate('position'));
     if (stage.value) stageObserver.observe(stage.value);
     document.addEventListener('keydown', onKeyDown);
   });
@@ -262,13 +326,17 @@
   );
 
   function nextPage() {
-    if (page.value < pages.value - 1) page.value++;
-    else if (props.book?.next) router.visit(`/texts/${props.book.next.id}`);
+    if (page.value < pages.value - 1) {
+      page.value++;
+      scheduleSave();
+    } else if (props.book?.next) router.visit(`/texts/${props.book.next.id}?at=start`);
   }
 
   function prevPage() {
-    if (page.value > 0) page.value--;
-    else if (props.book?.prev) router.visit(`/texts/${props.book.prev.id}?at=end`);
+    if (page.value > 0) {
+      page.value--;
+      scheduleSave();
+    } else if (props.book?.prev) router.visit(`/texts/${props.book.prev.id}?at=end`);
   }
 
   function onKeyDown(event: KeyboardEvent) {
@@ -312,9 +380,9 @@
   // Turn to the page where a footnote's marker sits
   function showNoteInText(id: number) {
     const mark = flow.value?.querySelector<HTMLElement>(`[data-note-id="${id}"]`);
-    if (!mark || !flow.value) return;
-    const offset = mark.getBoundingClientRect().left - flow.value.getBoundingClientRect().left;
-    page.value = Math.min(Math.floor(offset / (textArea.value.width + PAGE_GAP)), pages.value - 1);
+    if (!mark) return;
+    page.value = pageAt(mark.getBoundingClientRect().left);
+    scheduleSave();
   }
 
   function focusNote(id: number) {
