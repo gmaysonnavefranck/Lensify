@@ -15,6 +15,10 @@ Sizes: **S** = hours, **M** = a day or two, **L** = several days.
 - [x] AI on `gpt-5.4-mini` (configurable via `OPENAI_MODEL`), friendly errors when the AI fails
 - [x] Security: users only see their own data, AI routes require login, leaked keys removed from git history
 - [x] UI pass: compact sizing, full-page scrolling lists, popup kept inside the viewport
+- [x] Books: EPUB and TXT import split into chapters, chapter navigation, continue where you left off
+- [x] Paged reading: A4-like pages, text size control, keyboard page turns, remembers the reading point
+- [x] Book glossary: characters, places and terms highlighted in the text with descriptions on hover
+- [x] Highlights: marker-pen highlights in four colors, no note needed
 
 ## Now: before launch
 
@@ -24,6 +28,18 @@ Sizes: **S** = hours, **M** = a day or two, **L** = several days.
 - [ ] **Payments** (M): Pro plan via Paddle or Lemon Squeezy (merchant of record handles foreign taxes)
 - [ ] **Production setup** (M): Forge deploy, real email sending, database backups, queue worker
 - [ ] **Legal** (S): privacy policy and terms (LGPD/GDPR), cookie notice if analytics are added
+
+## Next: reading long books
+
+- [ ] **Search inside a book** (M): find a word across all chapters, snippet per hit, jump to the page
+- [ ] **"Previously on…" recap** (M): AI summary of what you read so far when you come back to a book, built only from chapters before your reading point (no spoilers)
+- [ ] **Glossary mentions** (S/M): where each name appears, located finer than a chapter (page or percentage), first appearance first
+
+## Dashboard
+
+- [ ] **Home dashboard** (M): continue reading button, daily quote from your saved quotes, a word from your vocabulary, reading streak, pages per day and time spent
+- [ ] **Reading stats** (M): track page turns and reading time per day to feed the streak and charts
+- [ ] **Book recommendations** (M): suggest a next book based on recent reading
 
 ## Quality
 
@@ -39,7 +55,7 @@ Sizes: **S** = hours, **M** = a day or two, **L** = several days.
 - [ ] **Export** (M): download the annotated edition as PDF or Markdown, a natural Pro feature
 - [ ] **Global search** (M): one search across texts, footnotes, quotes and vocabulary
 - [ ] **Side-by-side translations** (L): original and translation in two columns, annotate both
-- [ ] **PDF upload / Books** (L): split long works into chapters; brings back the Books section
+- [ ] **PDF upload** (L): import PDF books into chapters
 
 ## Ideas to explore
 
@@ -47,7 +63,8 @@ Sizes: **S** = hours, **M** = a day or two, **L** = several days.
 - **Ask the text** (M): chat with AI grounded only in the current text and its notes
 - **One-click annotation** (S): AI drafts footnotes for a whole poem at once, user keeps what they like
 - **Footnote types** (S): tag notes as context, literary device, translation, personal; filter by type
-- **Characters and relationships** (L): character sheets per work and a relationship map
+- **Relationship map** (L): visual map of how glossary characters connect
+- **AI "Who is this?"** (S): draft a glossary description from the chapters read so far; skipped until spoilers can be avoided reliably
 - **Collections / shelves** (S): group texts by course, project or theme
 - **Import Kindle highlights** (M): turn existing highlights into texts with notes
 - **Browser extension** (M): clip a passage from any site into Lensify

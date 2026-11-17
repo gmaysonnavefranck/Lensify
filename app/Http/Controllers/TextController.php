@@ -79,7 +79,7 @@ class TextController extends Controller
      */
     public function show(Request $request)
     {
-        $text = Text::with(['author', 'textNotes'])
+        $text = Text::with(['author', 'textNotes', 'highlights'])
             ->with(['translations:id,translation_for,language'])
             ->where('user_id', Auth::id())
             ->findOrFail($request->route('id'));

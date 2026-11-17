@@ -4,6 +4,7 @@ use App\Http\Controllers\AuthorController;
 use App\Http\Controllers\BookController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\GlossaryController;
+use App\Http\Controllers\HighlightController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\QuoteController;
 use App\Http\Controllers\TextController;
@@ -26,6 +27,7 @@ Route::middleware(['auth', 'verified'])->prefix('texts')->group(function () {
 
     Route::post('{text}/assign-author', [TextController::class, 'assignAuthor']);
     Route::post('{text}/footnote', [TextController::class, 'associateFootnote']);
+    Route::post('{text}/highlights', [HighlightController::class, 'store']);
     Route::post('fetch-text', [TextController::class, 'getTextInformation']);
 });
 
@@ -44,6 +46,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
+    Route::patch('highlights/{highlight}', [HighlightController::class, 'update']);
+    Route::delete('highlights/{highlight}', [HighlightController::class, 'destroy']);
+
     Route::patch('notes/{textNote}', [TextNoteController::class, 'update']);
     Route::delete('notes/{textNote}', [TextNoteController::class, 'destroy']);
 

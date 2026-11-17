@@ -2,7 +2,7 @@
   import AuthLayout from '@/Layouts/AuthLayout.vue';
   import Button from '@/Components/Button.vue';
   import Icon from '@/Components/Icon.vue';
-  import { ChapterNav, FootNote, GlossaryEntry, Text } from '@/types/index';
+  import { ChapterNav, FootNote, GlossaryEntry, Highlight, HighlightColor, Text } from '@/types/index';
   import { GLOSSARY_TYPES } from '@/glossary';
   import GlossaryEntryModal from '../Books/GlossaryEntryModal.vue';
   import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
@@ -50,6 +50,18 @@
     vocabState.value = 'idle';
     savedWord.value = null;
     savedQuote.value = null;
+    highlightTarget.value = null;
+
+    // A plain click on a highlight opens its menu (glossary names inside one keep their own click)
+    // ponytail: a highlight made only of a glossary name can't be clicked; highlight over it to replace it
+    const clicked = (event.target as Element).closest?.<HTMLElement>('[data-highlight-id]');
+    if (!text && clicked) {
+      highlightTarget.value = highlights.value.find((h) => h.id === Number(clicked.dataset.highlightId)) ?? null;
+      const rect = clicked.getBoundingClientRect();
+      selectedText.value = '';
+      selectedTextPosition.value = { top: rect.top, bottom: rect.bottom, centerX: event.clientX };
+      return;
+    }
 
     if (!text || !range || !contentContainer.value?.contains(range.commonAncestorContainer)) {
       selectedText.value = '';
@@ -58,8 +70,88 @@
     }
 
     const rect = range.getBoundingClientRect();
+    selectedRange.value = contentRange(range);
     selectedText.value = text;
     selectedTextPosition.value = { top: rect.top, bottom: rect.bottom, centerX: rect.left + rect.width / 2 };
+  }
+
+  // Where a DOM selection sits in the content, as character offsets without surrounding whitespace.
+  // Taken from the selection itself, so a repeated phrase anchors to the copy that was selected.
+  const selectedRange = ref<{ start: number; end: number } | null>(null);
+  function contentRange(range: Range) {
+    const root = contentContainer.value!;
+    const offsetAt = (node: Node, offset: number) => {
+      if (!root.contains(node)) return 0;
+      const before = document.createRange();
+      before.setStart(root, 0);
+      before.setEnd(node, offset);
+      return before.toString().length;
+    };
+    const content = props.text.content;
+    let start = offsetAt(range.startContainer, range.startOffset);
+    let end = offsetAt(range.endContainer, range.endOffset);
+    while (start < end && /\s/.test(content[start])) start++;
+    while (end > start && /\s/.test(content[end - 1])) end--;
+    return { start, end };
+  }
+
+  // Highlights: a marker pen, no note needed
+  const HIGHLIGHT_COLORS: Record<HighlightColor, string> = {
+    yellow: 'bg-yellow-200/80',
+    green: 'bg-green-200/80',
+    blue: 'bg-sky-200/80',
+    pink: 'bg-pink-200/80',
+  };
+  const highlightTarget = ref<Highlight | null>(null);
+
+  // Changes show instantly and save in the background; on failure the list goes back to what the server has
+  const highlights = ref<Highlight[]>([]);
+  watch(
+    () => props.text.highlights,
+    (list) => (highlights.value = [...(list ?? [])]),
+    { immediate: true },
+  );
+  let snapshot: Highlight[] = [];
+  function saving(request: Promise<unknown>) {
+    request.catch(() => {
+      highlights.value = snapshot;
+      alert("Couldn't save the highlight. Please try again.");
+    });
+  }
+
+  let tempId = 0;
+  function addHighlight(color: HighlightColor) {
+    const range = selectedRange.value;
+    if (!range || range.end <= range.start) return;
+    snapshot = highlights.value;
+    const temp: Highlight = { id: --tempId, start_position: range.start, end_position: range.end, color };
+    // Going over existing highlights replaces them (the server does the same)
+    highlights.value = [...snapshot.filter((h) => h.end_position <= range.start || h.start_position >= range.end), temp];
+    saving(
+      axios
+        .post(`/texts/${props.text.id}/highlights`, { start_position: range.start, end_position: range.end, color })
+        .then(({ data }) => (highlights.value = highlights.value.map((h) => (h.id === temp.id ? data.highlight : h)))),
+    );
+    window.getSelection()?.removeAllRanges();
+    closePopup();
+  }
+
+  function recolorHighlight(color: HighlightColor) {
+    const target = highlightTarget.value;
+    closePopup();
+    if (!target || target.id < 0) return;
+    snapshot = highlights.value;
+    highlights.value = snapshot.map((h) => (h.id === target.id ? { ...h, color } : h));
+    saving(axios.patch(`/highlights/${target.id}`, { color }));
+  }
+
+  function removeHighlight() {
+    const target = highlightTarget.value;
+    closePopup();
+    if (!target || target.id < 0) return;
+    snapshot = highlights.value;
+    highlights.value = snapshot.filter((h) => h.id !== target.id);
+    saving(axios.delete(`/highlights/${target.id}`));
   }
 
   // Keep the popup fully inside the viewport: clamp sideways, flip above the selection if there's no room below
@@ -140,6 +232,7 @@
     vocabState.value = 'idle';
     savedWord.value = null;
     savedQuote.value = null;
+    highlightTarget.value = null;
     selectedText.value = '';
     selectedTextPosition.value = null;
   }
@@ -167,7 +260,14 @@
     return { regex: new RegExp(`(?<![\\p{L}\\p{N}])(?:${pattern})(?![\\p{L}\\p{N}])`, 'gu'), byTerm };
   });
 
-  type Segment = { text: string; noteId?: number; number?: number; entry?: GlossaryEntry };
+  type Segment = {
+    text: string;
+    noteId?: number;
+    number?: number;
+    entry?: GlossaryEntry;
+    highlightId?: number;
+    color?: HighlightColor;
+  };
 
   // Plain text, with glossary names cut out as their own segments
   // ponytail: names inside a footnoted passage aren't highlighted; nest them if that's missed
@@ -185,22 +285,27 @@
     return parts;
   }
 
-  // Split the content into plain, glossary and annotated chunks
-  // ponytail: overlapping notes are skipped in the text (still listed in the panel); nest marks if overlaps become common
+  // Split the content into plain, glossary, highlighted and annotated chunks
+  // ponytail: a note or highlight overlapping an earlier one is skipped in the text (notes stay listed in the panel); nest marks if overlaps become common
   const contentSegments = computed(() => {
     const content = props.text.content;
+    const marks = [
+      ...sortedNotes.value.map((note, index) => ({ start: note.start_position, end: note.end_position, note, number: index + 1 })),
+      ...highlights.value.map((highlight) => ({ start: highlight.start_position, end: highlight.end_position, highlight })),
+    ].sort((a, b) => a.start - b.start);
     const segments: Segment[] = [];
     let cursor = 0;
-    sortedNotes.value.forEach((note, index) => {
-      if (note.start_position < cursor || note.end_position > content.length) return;
-      segments.push(...plainSegments(content.slice(cursor, note.start_position)));
-      segments.push({
-        text: content.slice(note.start_position, note.end_position),
-        noteId: note.id,
-        number: index + 1,
-      });
-      cursor = note.end_position;
-    });
+    for (const mark of marks) {
+      if (mark.start < cursor || mark.end > content.length) continue;
+      segments.push(...plainSegments(content.slice(cursor, mark.start)));
+      const text = content.slice(mark.start, mark.end);
+      if ('note' in mark) segments.push({ text, noteId: mark.note.id, number: mark.number });
+      else {
+        const { id, color } = mark.highlight;
+        segments.push(...plainSegments(text).map((part) => ({ ...part, highlightId: id, color })));
+      }
+      cursor = mark.end;
+    }
     segments.push(...plainSegments(content.slice(cursor)));
     return segments;
   });
@@ -458,22 +563,12 @@
   }
 
   async function saveFootnote() {
-    let start_position = 0;
-    let end_position = 0;
-
-    const start = props.text.content.indexOf(selectedText.value);
-
-    if (start !== -1) {
-      start_position = start;
-      end_position = start + selectedText.value.length;
-    } else {
-      return console.warn('Selected text not found in the full text.');
-    }
+    if (!selectedRange.value) return;
 
     await axios.post(`/texts/${props.text.id}/footnote`, {
       note: newFootnote.value,
-      start_position,
-      end_position,
+      start_position: selectedRange.value.start,
+      end_position: selectedRange.value.end,
       is_ai_generated: isAiGenerated.value,
       text_content: selectedText.value,
     });
@@ -589,12 +684,19 @@
             ><span
                     v-else-if="segment.entry"
                     class="cursor-pointer underline decoration-amber-500/60 decoration-dotted decoration-2 underline-offset-4 hover:bg-amber-100/60"
+                    :class="segment.color && HIGHLIGHT_COLORS[segment.color]"
                     @mouseenter="showEntryCard(segment.entry, $event)"
                     @mouseleave="hoveredEntry = null"
                     @click="
                       glossaryModal = { entry: segment.entry };
                       hoveredEntry = null;
                     "
+                    >{{ segment.text }}</span
+                  ><span
+                    v-else-if="segment.color"
+                    :data-highlight-id="segment.highlightId"
+                    class="cursor-pointer"
+                    :class="HIGHLIGHT_COLORS[segment.color]"
                     >{{ segment.text }}</span
                   ><template v-else>{{ segment.text }}</template></template
           >
@@ -746,16 +848,37 @@
     </div>
   </div>
   <div
-    v-if="selectedTextPosition && selectedText"
+    v-if="selectedTextPosition && (selectedText || highlightTarget)"
     ref="selectionPopup"
     class="fixed z-50 max-w-[calc(100vw-16px)] rounded-lg border border-gray-200 bg-white p-2 shadow-lg"
     :class="isWritingNote ? 'max-h-[90vh] -translate-x-1/2 -translate-y-1/2 transform overflow-y-auto' : ''"
     :style="isWritingNote ? { top: '50%', left: '50%' } : popupPosition"
   >
+    <div v-if="highlightTarget" class="flex items-center gap-1.5 px-1">
+      <button
+        v-for="(classes, color) in HIGHLIGHT_COLORS"
+        :key="color"
+        class="h-6 w-6 rounded-full border border-black/10 transition-transform hover:scale-110"
+        :class="[classes, highlightTarget.color === color && 'ring-2 ring-primary/60 ring-offset-1']"
+        :title="`Make it ${color}`"
+        @click="recolorHighlight(color)"
+      />
+      <Button type="ghost" icon="trash" class="!p-1.5 hover:!text-error" title="Remove highlight" @click="removeHighlight" />
+    </div>
     <div
-      v-if="!isGeneratingExplanation && !isWritingNote && vocabState === 'idle' && !savedQuote"
-      class="flex flex-wrap gap-1"
+      v-else-if="!isGeneratingExplanation && !isWritingNote && vocabState === 'idle' && !savedQuote"
+      class="flex flex-wrap items-center gap-1"
     >
+      <div class="flex items-center gap-1 border-r border-gray-200 pl-1 pr-2" title="Highlight">
+        <button
+          v-for="(classes, color) in HIGHLIGHT_COLORS"
+          :key="color"
+          class="h-5 w-5 rounded-full border border-black/10 transition-transform hover:scale-110"
+          :class="classes"
+          :title="`Highlight in ${color}`"
+          @click="addHighlight(color)"
+        />
+      </div>
       <Button type="ghost" icon="squarePen" title="Write your own footnote" @click="isWritingNote = true">Note</Button>
       <Button type="ghost" icon="quotes" title="Save as a quote" @click="saveQuote">Quote</Button>
       <Button v-if="canAddWord" type="ghost" icon="bookA" title="Add to vocabulary" @click="addToVocabulary">

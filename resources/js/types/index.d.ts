@@ -59,6 +59,7 @@ export type Text = {
   translations?: Text[];
   translation_for?: number;
   text_notes?: FootNote[];
+  highlights?: Highlight[];
   read_offset?: number;
 };
 
@@ -98,6 +99,15 @@ export type ChapterNav = {
   total: number;
   prev: { id: number; title: string } | null;
   next: { id: number; title: string } | null;
+};
+
+export type HighlightColor = 'yellow' | 'green' | 'blue' | 'pink';
+
+export type Highlight = {
+  id: number;
+  start_position: number;
+  end_position: number;
+  color: HighlightColor;
 };
 
 export type FootNote = {
