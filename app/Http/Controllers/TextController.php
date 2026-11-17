@@ -84,7 +84,11 @@ class TextController extends Controller
             ->where('user_id', Auth::id())
             ->findOrFail($request->route('id'));
 
-        return Inertia::render('Texts/Text', ['text' => $text, 'book' => $this->chapterNav($text)]);
+        return Inertia::render('Texts/Text', [
+            'text' => $text,
+            'book' => $this->chapterNav($text),
+            'glossary' => $text->book_id ? $text->book->glossaryEntries : [],
+        ]);
     }
 
     /**

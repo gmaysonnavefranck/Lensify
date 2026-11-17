@@ -71,6 +71,18 @@ export type Book = {
   last_read?: { id: number; title: string } | null;
 };
 
+export type GlossaryType = 'character' | 'place' | 'other';
+
+export type GlossaryEntry = {
+  id: number;
+  type: GlossaryType;
+  name: string;
+  aliases: string[] | null;
+  description: string | null;
+  relation: string | null;
+  notes: string | null;
+};
+
 export type Chapter = {
   id: number;
   title: string;

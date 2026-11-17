@@ -18,6 +18,11 @@ class Book extends Model
         return $this->hasMany(Text::class)->orderBy('position');
     }
 
+    public function glossaryEntries()
+    {
+        return $this->hasMany(GlossaryEntry::class)->orderBy('name');
+    }
+
     public function lastRead()
     {
         return $this->belongsTo(Text::class, 'last_read_text_id');

@@ -2,15 +2,27 @@
   import AuthLayout from '@/Layouts/AuthLayout.vue';
   import Button from '@/Components/Button.vue';
   import Icon from '@/Components/Icon.vue';
-  import { Book, Chapter } from '@/types/index';
+  import { GLOSSARY_TYPES } from '@/glossary';
+  import { Book, Chapter, GlossaryEntry, GlossaryType } from '@/types/index';
   import { Link, router } from '@inertiajs/vue3';
   import { computed, ref } from 'vue';
   import BookModal from './BookModal.vue';
+  import GlossaryEntryModal from './GlossaryEntryModal.vue';
 
-  const props = defineProps<{ book: Book & { last_read_text_id: number | null }; chapters: Chapter[] }>();
+  const props = defineProps<{
+    book: Book & { last_read_text_id: number | null };
+    chapters: Chapter[];
+    glossary: GlossaryEntry[];
+  }>();
   defineOptions({ layout: AuthLayout });
 
   const isEditing = ref(false);
+  const tab = ref<'chapters' | 'glossary'>('chapters');
+  const typeFilter = ref<GlossaryType | null>(null);
+  const glossaryModal = ref<{ entry?: GlossaryEntry } | null>(null);
+  const visibleEntries = computed(() =>
+    typeFilter.value ? props.glossary.filter((entry) => entry.type === typeFilter.value) : props.glossary,
+  );
   const resume = computed(() => props.chapters.find((c) => c.id === props.book.last_read_text_id) ?? null);
   const notesCount = computed(() => props.chapters.reduce((sum, c) => sum + c.text_notes_count, 0));
 
@@ -67,7 +79,73 @@
         </div>
       </header>
 
-      <ol class="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white">
+      <div class="flex items-center gap-6 border-b border-gray-200">
+        <button
+          v-for="(label, key) in { chapters: `Chapters (${chapters.length})`, glossary: `Glossary (${glossary.length})` }"
+          :key="key"
+          class="-mb-px border-b-2 pb-2 text-sm font-medium transition-colors"
+          :class="tab === key ? 'border-primary text-primary' : 'border-transparent text-textSecondary hover:text-primary'"
+          @click="tab = key"
+        >
+          {{ label }}
+        </button>
+      </div>
+
+      <section v-if="tab === 'glossary'" class="flex flex-col gap-4">
+        <div class="flex items-center justify-between gap-4">
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="(meta, type) in { all: { label: 'All', icon: '' }, ...GLOSSARY_TYPES }"
+              :key="type"
+              class="flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors"
+              :class="
+                (typeFilter ?? 'all') === type
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-gray-200 text-textSecondary hover:border-primary/40'
+              "
+              @click="typeFilter = type === 'all' ? null : (type as GlossaryType)"
+            >
+              <Icon v-if="meta.icon" :icon="meta.icon" class="h-3.5 w-3.5" />
+              {{ meta.label }}
+            </button>
+          </div>
+          <Button icon="plus" text="Add entry" @click="glossaryModal = {}" />
+        </div>
+
+        <ul v-if="visibleEntries.length" class="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white">
+          <li
+            v-for="entry in visibleEntries"
+            :key="entry.id"
+            class="flex cursor-pointer gap-4 px-5 py-4 transition-colors hover:bg-gray-50"
+            @click="glossaryModal = { entry }"
+          >
+            <Icon :icon="GLOSSARY_TYPES[entry.type].icon" class="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+            <div class="min-w-0 flex-1">
+              <p class="font-medium text-textPrimary">
+                {{ entry.name }}
+                <span v-if="entry.aliases?.length" class="text-sm font-normal text-textSecondary">
+                  · {{ entry.aliases.join(', ') }}
+                </span>
+              </p>
+              <p v-if="entry.relation" class="text-sm text-primary">{{ entry.relation }}</p>
+              <p v-if="entry.description" class="mt-1 text-sm text-textSecondary">{{ entry.description }}</p>
+              <p v-if="entry.notes" class="mt-2 whitespace-pre-line border-l-2 border-gray-200 pl-3 text-sm text-textSecondary">
+                {{ entry.notes }}
+              </p>
+            </div>
+          </li>
+        </ul>
+        <div v-else class="rounded-lg border-2 border-dashed border-gray-200 p-10 text-center">
+          <p class="mb-1 font-medium text-textPrimary">
+            {{ glossary.length ? 'Nothing of this type yet' : 'No glossary entries yet' }}
+          </p>
+          <p class="text-sm text-textSecondary">
+            While reading, select a name and choose <span class="font-medium">Glossary</span> to keep track of who's who
+          </p>
+        </div>
+      </section>
+
+      <ol v-else class="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white">
         <li v-for="(chapter, index) in chapters" :key="chapter.id">
           <Link
             :href="`/texts/${chapter.id}`"
@@ -89,6 +167,12 @@
     </div>
   </div>
   <BookModal v-if="isEditing" :book="book" @close="isEditing = false" />
+  <GlossaryEntryModal
+    v-if="glossaryModal"
+    :book-id="book.id"
+    :entry="glossaryModal.entry"
+    @close="glossaryModal = null"
+  />
 </template>
 
 <style scoped>

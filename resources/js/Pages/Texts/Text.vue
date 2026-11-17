@@ -2,7 +2,9 @@
   import AuthLayout from '@/Layouts/AuthLayout.vue';
   import Button from '@/Components/Button.vue';
   import Icon from '@/Components/Icon.vue';
-  import { ChapterNav, FootNote, Text } from '@/types/index';
+  import { ChapterNav, FootNote, GlossaryEntry, Text } from '@/types/index';
+  import { GLOSSARY_TYPES } from '@/glossary';
+  import GlossaryEntryModal from '../Books/GlossaryEntryModal.vue';
   import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
   import { Link, router, usePage } from '@inertiajs/vue3';
   import EditTextModal from './EditTextModal.vue';
@@ -12,6 +14,7 @@
   interface textProps {
     text: Text;
     book?: ChapterNav | null;
+    glossary?: GlossaryEntry[];
     response?: string;
   }
 
@@ -148,15 +151,49 @@
     [...(props.text.text_notes || [])].sort((a, b) => a.start_position - b.start_position),
   );
 
-  // Split the content into plain and annotated chunks
+  // One regex for every glossary name and alias, longest first so "Sancho Panza" wins over "Sancho"
+  const glossaryMatcher = computed(() => {
+    const byTerm = new Map<string, GlossaryEntry>();
+    for (const entry of props.glossary ?? []) {
+      for (const term of [entry.name, ...(entry.aliases ?? [])]) {
+        if (term.trim().length > 1 && !byTerm.has(term.trim())) byTerm.set(term.trim(), entry);
+      }
+    }
+    if (!byTerm.size) return null;
+    const pattern = [...byTerm.keys()]
+      .sort((a, b) => b.length - a.length)
+      .map((term) => term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+      .join('|');
+    return { regex: new RegExp(`(?<![\\p{L}\\p{N}])(?:${pattern})(?![\\p{L}\\p{N}])`, 'gu'), byTerm };
+  });
+
+  type Segment = { text: string; noteId?: number; number?: number; entry?: GlossaryEntry };
+
+  // Plain text, with glossary names cut out as their own segments
+  // ponytail: names inside a footnoted passage aren't highlighted; nest them if that's missed
+  function plainSegments(text: string): Segment[] {
+    const matcher = glossaryMatcher.value;
+    if (!matcher || !text) return [{ text }];
+    const parts: Segment[] = [];
+    let cursor = 0;
+    for (const match of text.matchAll(matcher.regex)) {
+      parts.push({ text: text.slice(cursor, match.index) });
+      parts.push({ text: match[0], entry: matcher.byTerm.get(match[0]) });
+      cursor = match.index! + match[0].length;
+    }
+    parts.push({ text: text.slice(cursor) });
+    return parts;
+  }
+
+  // Split the content into plain, glossary and annotated chunks
   // ponytail: overlapping notes are skipped in the text (still listed in the panel); nest marks if overlaps become common
   const contentSegments = computed(() => {
     const content = props.text.content;
-    const segments: { text: string; noteId?: number; number?: number }[] = [];
+    const segments: Segment[] = [];
     let cursor = 0;
     sortedNotes.value.forEach((note, index) => {
       if (note.start_position < cursor || note.end_position > content.length) return;
-      segments.push({ text: content.slice(cursor, note.start_position) });
+      segments.push(...plainSegments(content.slice(cursor, note.start_position)));
       segments.push({
         text: content.slice(note.start_position, note.end_position),
         noteId: note.id,
@@ -164,9 +201,23 @@
       });
       cursor = note.end_position;
     });
-    segments.push({ text: content.slice(cursor) });
+    segments.push(...plainSegments(content.slice(cursor)));
     return segments;
   });
+
+  // Glossary: hover a name for its description, click it for everything
+  const hoveredEntry = ref<{ entry: GlossaryEntry; top: number; left: number } | null>(null);
+  const glossaryModal = ref<{ entry?: GlossaryEntry; name?: string } | null>(null);
+
+  function showEntryCard(entry: GlossaryEntry, event: MouseEvent) {
+    const rect = (event.target as HTMLElement).getBoundingClientRect();
+    hoveredEntry.value = { entry, top: rect.bottom + 6, left: Math.min(rect.left, window.innerWidth - 300) };
+  }
+
+  function addToGlossary() {
+    glossaryModal.value = { name: selectedText.value };
+    closePopup();
+  }
 
   const editingNoteId = ref<number | null>(null);
   const editDraft = ref('');
@@ -207,6 +258,8 @@
   }));
   const page = ref(0);
   const pages = ref(1);
+  // Turning the page with the keyboard doesn't fire mouseleave on a hovered glossary name
+  watch(page, () => (hoveredEntry.value = null));
 
   const readStoredFont = () => {
     try {
@@ -342,7 +395,7 @@
   function onKeyDown(event: KeyboardEvent) {
     const target = event.target as HTMLElement;
     if (event.altKey || event.ctrlKey || event.metaKey || target.closest('input, textarea, [contenteditable]')) return;
-    if (isWritingNote.value || editingNoteId.value !== null || isEditingText.value) return;
+    if (isWritingNote.value || editingNoteId.value !== null || isEditingText.value || glossaryModal.value) return;
     if (event.key === 'ArrowRight' || event.key === 'PageDown') nextPage();
     else if (event.key === 'ArrowLeft' || event.key === 'PageUp') prevPage();
     else return;
@@ -533,7 +586,17 @@
               @mouseleave="activeNoteId = null"
               @click="focusNote(segment.noteId)"
               >{{ segment.text }}</mark
-            ><template v-else>{{ segment.text }}</template></template
+            ><span
+                    v-else-if="segment.entry"
+                    class="cursor-pointer underline decoration-amber-500/60 decoration-dotted decoration-2 underline-offset-4 hover:bg-amber-100/60"
+                    @mouseenter="showEntryCard(segment.entry, $event)"
+                    @mouseleave="hoveredEntry = null"
+                    @click="
+                      glossaryModal = { entry: segment.entry };
+                      hoveredEntry = null;
+                    "
+                    >{{ segment.text }}</span
+                  ><template v-else>{{ segment.text }}</template></template
           >
               </p>
             </div>
@@ -698,6 +761,9 @@
       <Button v-if="canAddWord" type="ghost" icon="bookA" title="Add to vocabulary" @click="addToVocabulary">
         Word
       </Button>
+      <Button v-if="book && selectedText.length <= 80" type="ghost" icon="author" title="Add to the book's glossary" @click="addToGlossary">
+        Glossary
+      </Button>
       <Button icon="sparkles" title="Generate an AI analysis" @click="generateExplanation">Analyze</Button>
     </div>
     <div v-if="savedQuote" class="flex items-center gap-4 px-2 py-1 text-sm">
@@ -752,4 +818,26 @@
     </div>
   </div>
   <EditTextModal v-if="isEditingText" :text="text" @close="isEditingText = false" />
+  <div
+    v-if="hoveredEntry"
+    class="pointer-events-none fixed z-40 w-72 rounded-lg border border-gray-200 bg-white p-3 shadow-lg"
+    :style="{ top: `${hoveredEntry.top}px`, left: `${hoveredEntry.left}px` }"
+  >
+    <p class="flex items-center gap-1.5 font-medium text-textPrimary">
+      <Icon :icon="GLOSSARY_TYPES[hoveredEntry.entry.type].icon" class="h-4 w-4 text-amber-600" />
+      {{ hoveredEntry.entry.name }}
+    </p>
+    <p v-if="hoveredEntry.entry.description" class="mt-1 text-sm text-textSecondary">
+      {{ hoveredEntry.entry.description }}
+    </p>
+    <p v-else class="mt-1 text-sm italic text-textSecondary">No description yet. Click to add one.</p>
+  </div>
+  <GlossaryEntryModal
+    v-if="glossaryModal && book"
+    :book-id="book.id"
+    :entry="glossaryModal.entry"
+    :name="glossaryModal.name"
+    :entries="glossary"
+    @close="glossaryModal = null"
+  />
 </template>

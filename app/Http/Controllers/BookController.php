@@ -77,6 +77,7 @@ class BookController extends Controller
         return Inertia::render('Books/Book', [
             'book' => $book->load('author:id,name'),
             'chapters' => $book->chapters()->withCount('textNotes')->get(['id', 'title', 'position', 'book_id']),
+            'glossary' => $book->glossaryEntries,
         ]);
     }
 

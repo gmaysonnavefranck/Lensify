@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthorController;
 use App\Http\Controllers\BookController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\GlossaryController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\QuoteController;
 use App\Http\Controllers\TextController;
@@ -34,6 +35,12 @@ Route::middleware(['auth', 'verified'])->prefix('books')->group(function () {
     Route::get('{book}', [BookController::class, 'show'])->name('books.show');
     Route::patch('{book}', [BookController::class, 'update']);
     Route::delete('{book}', [BookController::class, 'destroy']);
+    Route::post('{book}/glossary', [GlossaryController::class, 'store']);
+});
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::patch('glossary/{entry}', [GlossaryController::class, 'update']);
+    Route::delete('glossary/{entry}', [GlossaryController::class, 'destroy']);
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {
