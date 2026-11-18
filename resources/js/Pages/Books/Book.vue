@@ -7,7 +7,7 @@
   import axios from 'axios';
   import { Book, Chapter, GlossaryEntry, GlossaryType } from '@/types/index';
   import { Link, router } from '@inertiajs/vue3';
-  import { computed, ref } from 'vue';
+  import { computed, onMounted, ref } from 'vue';
   import BookModal from './BookModal.vue';
   import GlossaryEntryModal from './GlossaryEntryModal.vue';
 
@@ -53,6 +53,15 @@
       if (search.value?.q === q) search.value = { q, page, results: [], hasMore: false, loading: false, error: true };
     }
   }
+
+  // "Whole book" from the reader's find box arrives as ?q=
+  onMounted(() => {
+    const q = new URLSearchParams(window.location.search).get('q');
+    if (q) {
+      query.value = q;
+      runSearch();
+    }
+  });
 
   function clearSearch() {
     query.value = '';

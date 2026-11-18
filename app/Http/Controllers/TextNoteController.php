@@ -14,7 +14,7 @@ class TextNoteController extends Controller
 
         $textNote->update($request->validate(['note' => 'required|string']));
 
-        return back();
+        return response()->noContent();
     }
 
     public function destroy(TextNote $textNote)
@@ -23,7 +23,7 @@ class TextNoteController extends Controller
 
         $textNote->delete();
 
-        return back();
+        return response()->noContent();
     }
 
     private function authorizeOwner(TextNote $textNote): void

@@ -18,10 +18,10 @@ test('owner can edit and delete a footnote', function () {
     $user = User::factory()->create();
     $note = noteFor($user);
 
-    $this->actingAs($user)->patch("/notes/{$note->id}", ['note' => 'Edited note'])->assertRedirect();
+    $this->actingAs($user)->patch("/notes/{$note->id}", ['note' => 'Edited note'])->assertNoContent();
     expect($note->fresh()->note)->toBe('Edited note');
 
-    $this->actingAs($user)->delete("/notes/{$note->id}")->assertRedirect();
+    $this->actingAs($user)->delete("/notes/{$note->id}")->assertNoContent();
     expect(TextNote::find($note->id))->toBeNull();
 });
 

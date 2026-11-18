@@ -111,11 +111,11 @@
     (list) => (highlights.value = [...(list ?? [])]),
     { immediate: true },
   );
-  let snapshot: Highlight[] = [];
-  function saving(request: Promise<unknown>) {
+  // Highlights and footnotes change on screen first, then save; a failed save puts things back
+  function saving(request: Promise<unknown>, undo: () => void) {
     request.catch(() => {
-      highlights.value = snapshot;
-      alert("Couldn't save the highlight. Please try again.");
+      undo();
+      alert("Couldn't save your change. Please try again.");
     });
   }
 
@@ -123,14 +123,15 @@
   function addHighlight(color: HighlightColor) {
     const range = selectedRange.value;
     if (!range || range.end <= range.start) return;
-    snapshot = highlights.value;
+    const before = highlights.value;
     const temp: Highlight = { id: --tempId, start_position: range.start, end_position: range.end, color };
     // Going over existing highlights replaces them (the server does the same)
-    highlights.value = [...snapshot.filter((h) => h.end_position <= range.start || h.start_position >= range.end), temp];
+    highlights.value = [...before.filter((h) => h.end_position <= range.start || h.start_position >= range.end), temp];
     saving(
       axios
         .post(`/texts/${props.text.id}/highlights`, { start_position: range.start, end_position: range.end, color })
         .then(({ data }) => (highlights.value = highlights.value.map((h) => (h.id === temp.id ? data.highlight : h)))),
+      () => (highlights.value = before),
     );
     window.getSelection()?.removeAllRanges();
     closePopup();
@@ -140,18 +141,18 @@
     const target = highlightTarget.value;
     closePopup();
     if (!target || target.id < 0) return;
-    snapshot = highlights.value;
-    highlights.value = snapshot.map((h) => (h.id === target.id ? { ...h, color } : h));
-    saving(axios.patch(`/highlights/${target.id}`, { color }));
+    const before = highlights.value;
+    highlights.value = before.map((h) => (h.id === target.id ? { ...h, color } : h));
+    saving(axios.patch(`/highlights/${target.id}`, { color }), () => (highlights.value = before));
   }
 
   function removeHighlight() {
     const target = highlightTarget.value;
     closePopup();
     if (!target || target.id < 0) return;
-    snapshot = highlights.value;
-    highlights.value = snapshot.filter((h) => h.id !== target.id);
-    saving(axios.delete(`/highlights/${target.id}`));
+    const before = highlights.value;
+    highlights.value = before.filter((h) => h.id !== target.id);
+    saving(axios.delete(`/highlights/${target.id}`), () => (highlights.value = before));
   }
 
   // Keep the popup fully inside the viewport: clamp sideways, flip above the selection if there's no room below
@@ -240,9 +241,13 @@
   const activeNoteId = ref<number | null>(null);
 
   // Notes numbered in reading order, matching the markers in the text
-  const sortedNotes = computed(() =>
-    [...(props.text.text_notes || [])].sort((a, b) => a.start_position - b.start_position),
+  const notes = ref<FootNote[]>([]);
+  watch(
+    () => props.text.text_notes,
+    (list) => (notes.value = [...(list ?? [])]),
+    { immediate: true },
   );
+  const sortedNotes = computed(() => [...notes.value].sort((a, b) => a.start_position - b.start_position));
 
   // One regex for every glossary name and alias, longest first so "Sancho Panza" wins over "Sancho"
   const glossaryMatcher = computed(() => {
@@ -333,17 +338,20 @@
   }
 
   function saveEdit() {
-    if (!editDraft.value.trim()) return;
-    router.patch(
-      `/notes/${editingNoteId.value}`,
-      { note: editDraft.value },
-      { preserveScroll: true, preserveState: true, onSuccess: () => (editingNoteId.value = null) },
-    );
+    const id = editingNoteId.value;
+    const note = editDraft.value;
+    if (id === null || id < 0 || !note.trim()) return;
+    const before = notes.value;
+    notes.value = before.map((n) => (n.id === id ? { ...n, note } : n));
+    editingNoteId.value = null;
+    saving(axios.patch(`/notes/${id}`, { note }), () => (notes.value = before));
   }
 
   function deleteNote(note: FootNote) {
-    if (!confirm('Delete this footnote?')) return;
-    router.delete(`/notes/${note.id}`, { preserveScroll: true, preserveState: true });
+    if (note.id < 0 || !confirm('Delete this footnote?')) return;
+    const before = notes.value;
+    notes.value = before.filter((n) => n.id !== note.id);
+    saving(axios.delete(`/notes/${note.id}`), () => (notes.value = before));
   }
 
   // --- Paged reading: the text flows into CSS columns, one column per page, and turning a page slides them ---
@@ -521,8 +529,65 @@
     } else if (props.book?.prev) router.visit(`/texts/${props.book.prev.id}?at=end`);
   }
 
+  // Find in chapter, like Ctrl+F: every match marked, Enter steps through them turning pages as needed.
+  // The browser's own find can't see text on hidden pages, so Ctrl+F opens this instead.
+  const findInput = ref<HTMLInputElement | null>(null);
+  const findQuery = ref('');
+  const findIndex = ref(0);
+  const findHits = computed(() => {
+    const query = findQuery.value.trim().toLowerCase();
+    if (query.length < 2) return [];
+    const content = props.text.content.toLowerCase();
+    const hits: number[] = [];
+    // ponytail: capped at 500 marks; nobody steps through more
+    for (let at = content.indexOf(query); at !== -1 && hits.length < 500; at = content.indexOf(query, at + query.length)) {
+      hits.push(at);
+    }
+    return hits;
+  });
+
+  function showFindHit(index: number) {
+    const hits = findHits.value;
+    if (!hits.length) return;
+    findIndex.value = (index + hits.length) % hits.length;
+    page.value = pageOfOffset(hits[findIndex.value]);
+  }
+
+  watch(
+    () => props.text.id,
+    () => (findQuery.value = ''),
+  );
+
+  // A new query starts at the first match from the current page on
+  watch(findHits, (hits) => {
+    if (!hits.length) return;
+    const from = visibleOffset();
+    showFindHit(Math.max(0, hits.findIndex((at) => at >= from)));
+  });
+
+  // Re-mark after every change, including re-renders that replace the text nodes
+  watch([findHits, findIndex, contentSegments], () =>
+    nextTick(() => {
+      if (!('highlights' in CSS)) return;
+      const length = findQuery.value.trim().length;
+      const ranges = findHits.value.map((at) => contentDomRange(at, at + length)).filter((r): r is Range => !!r);
+      CSS.highlights.set('find-hit', new globalThis.Highlight(...ranges));
+      const current = ranges[findIndex.value];
+      if (current) CSS.highlights.set('find-current', new globalThis.Highlight(current));
+      else CSS.highlights.delete('find-current');
+    }),
+  );
+  onUnmounted(() => {
+    if ('highlights' in CSS) ['find-hit', 'find-current'].forEach((name) => CSS.highlights.delete(name));
+  });
+
   function onKeyDown(event: KeyboardEvent) {
     const target = event.target as HTMLElement;
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f' && !glossaryModal.value && !isEditingText.value) {
+      event.preventDefault();
+      findInput.value?.select();
+      return;
+    }
     if (event.altKey || event.ctrlKey || event.metaKey || target.closest('input, textarea, [contenteditable]')) return;
     if (isWritingNote.value || editingNoteId.value !== null || isEditingText.value || glossaryModal.value) return;
     if (event.key === 'ArrowRight' || event.key === 'PageDown') nextPage();
@@ -586,26 +651,34 @@
     isWritingNote.value = true;
   }
 
-  async function saveFootnote() {
-    if (!selectedRange.value) return;
-
-    await axios.post(`/texts/${props.text.id}/footnote`, {
+  function saveFootnote() {
+    const range = selectedRange.value;
+    if (!range || !newFootnote.value.trim()) return;
+    const temp: FootNote = {
+      id: --tempId,
       note: newFootnote.value,
-      start_position: selectedRange.value.start,
-      end_position: selectedRange.value.end,
-      is_ai_generated: isAiGenerated.value,
       text_content: selectedText.value,
-    });
-
-    router.reload();
+      start_position: range.start,
+      end_position: range.end,
+      is_ai_generated: isAiGenerated.value,
+    };
+    const before = notes.value;
+    notes.value = [...before, temp];
+    saving(
+      axios
+        .post(`/texts/${props.text.id}/footnote`, { ...temp, id: undefined })
+        .then(({ data }) => (notes.value = notes.value.map((n) => (n.id === temp.id ? data.note : n)))),
+      () => (notes.value = before),
+    );
+    window.getSelection()?.removeAllRanges();
     closeCreateFootnoteMenu();
   }
 
   const isEditingText = ref(false);
 
   function deleteText() {
-    const notes = props.text.text_notes?.length ?? 0;
-    const warning = notes ? ` Its ${notes} footnote${notes === 1 ? '' : 's'} will be deleted too.` : '';
+    const count = notes.value.length;
+    const warning = count ? ` Its ${count} footnote${count === 1 ? '' : 's'} will be deleted too.` : '';
     if (confirm(`Delete “${props.text.title}”?${warning}`)) router.delete(`/texts/${props.text.id}`);
   }
 
@@ -658,6 +731,27 @@
       </Link>
     </div>
     <div class="flex items-center gap-4">
+      <div class="flex items-center gap-2 text-sm">
+        <input
+          ref="findInput"
+          v-model="findQuery"
+          type="search"
+          placeholder="Find in chapter"
+          class="w-44 rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary/30"
+          @keydown.enter.prevent="showFindHit(findIndex + ($event.shiftKey ? -1 : 1))"
+          @keydown.esc="findQuery = ''"
+        />
+        <span v-if="findQuery.trim().length >= 2" class="tabular-nums text-textSecondary">
+          {{ findHits.length ? `${findIndex + 1}/${findHits.length}` : 'No matches' }}
+        </span>
+        <Link
+          v-if="book && findQuery.trim().length >= 2"
+          :href="`/books/${book.id}?q=${encodeURIComponent(findQuery.trim())}`"
+          class="whitespace-nowrap text-primary hover:underline"
+        >
+          Whole book
+        </Link>
+      </div>
       <span v-if="text.language" class="flex items-center gap-2 text-sm text-textSecondary">
         <Icon icon="globe" class="h-4 w-4" />
         {{ text.language }}
@@ -779,9 +873,9 @@
         <span class="text-xl font-medium text-textPrimary">Footnotes & Analysis</span>
         <span
           class="rounded-full bg-slate-200 px-2 py-0.5 text-sm text-primary"
-          v-if="text.text_notes && text.text_notes.length > 0"
+          v-if="notes.length"
         >
-          {{ text.text_notes?.length || 0 }}
+          {{ notes.length }}
         </span>
       </div>
       <div v-if="sortedNotes.length > 0" class="space-y-4 overflow-y-auto">
@@ -992,5 +1086,11 @@
 <style>
   ::highlight(search-hit) {
     background-color: rgb(253 224 71 / 0.8);
+  }
+  ::highlight(find-hit) {
+    background-color: rgb(253 224 71 / 0.45);
+  }
+  ::highlight(find-current) {
+    background-color: rgb(251 146 60 / 0.7);
   }
 </style>

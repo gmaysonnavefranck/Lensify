@@ -194,9 +194,7 @@ class TextController extends Controller
         ]);
 
         // Create the footnote
-        $text->textNotes()->create($validated);
-
-        return response()->json(['text' => Text::with('author')->with('textNotes')->findOrFail($text->id)]);
+        return response()->json(['note' => $text->textNotes()->create($validated)], 201);
     }
 
     // Where a chapter sits in its book, for the breadcrumb and previous/next links
