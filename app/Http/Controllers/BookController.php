@@ -108,4 +108,58 @@ class BookController extends Controller
 
         return redirect()->route('books.index');
     }
+
+    // Every occurrence of a phrase across the book's chapters, in reading order, 10 per page
+    public function search(Request $request, Book $book)
+    {
+        abort_unless($book->user_id === Auth::id(), 404);
+
+        $validated = $request->validate(['q' => 'required|string|min:2|max:100', 'page' => 'integer|min:1']);
+        $query = trim($validated['q']);
+        $perPage = 10;
+        $skip = (($validated['page'] ?? 1) - 1) * $perPage;
+        $length = mb_strlen($query);
+        $hits = [];
+        $seen = 0;
+
+        // The database narrows it to chapters containing the phrase, then each one is scanned for every occurrence.
+        // ponytail: scans chapter text in PHP, fine for books; use a fulltext index if libraries get huge
+        $chapters = $book->chapters()->where('content', 'like', '%'.addcslashes($query, '%_\\').'%')
+            ->select('id', 'title', 'position', 'content')->lazy(20);
+
+        foreach ($chapters as $chapter) {
+            $offset = 0;
+            while (($at = mb_stripos($chapter->content, $query, $offset)) !== false) {
+                if ($seen++ >= $skip) {
+                    $hits[] = $this->hit($chapter, $at, $length);
+                }
+                // One past the page is enough to know there's a next page
+                if (count($hits) > $perPage) {
+                    break 2;
+                }
+                $offset = $at + $length;
+            }
+        }
+
+        return response()->json(['results' => array_slice($hits, 0, $perPage), 'hasMore' => count($hits) > $perPage]);
+    }
+
+    private function hit(Text $chapter, int $at, int $length): array
+    {
+        $before = mb_substr($chapter->content, max(0, $at - 90), min($at, 90));
+        $after = mb_substr($chapter->content, $at + $length, 90);
+        $cutAfter = $at + $length + 90 < mb_strlen($chapter->content);
+
+        return [
+            'text_id' => $chapter->id,
+            'chapter' => $chapter->title,
+            'position' => $chapter->position,
+            'offset' => $at,
+            'length' => $length,
+            // Cut to whole words and flatten line breaks so each snippet reads as one line
+            'before' => ($at > 90 ? '…' : '').preg_replace('/\s+/u', ' ', $at > 90 ? preg_replace('/^\S*\s/u', '', $before) : $before),
+            'match' => mb_substr($chapter->content, $at, $length),
+            'after' => preg_replace('/\s+/u', ' ', $cutAfter ? preg_replace('/\s\S*$/u', '', $after) : $after).($cutAfter ? '…' : ''),
+        ];
+    }
 }

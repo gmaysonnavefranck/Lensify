@@ -38,6 +38,7 @@ Route::middleware(['auth', 'verified'])->prefix('books')->group(function () {
     Route::patch('{book}', [BookController::class, 'update']);
     Route::delete('{book}', [BookController::class, 'destroy']);
     Route::post('{book}/glossary', [GlossaryController::class, 'store']);
+    Route::get('{book}/search', [BookController::class, 'search']);
 });
 
 Route::middleware(['auth', 'verified'])->group(function () {

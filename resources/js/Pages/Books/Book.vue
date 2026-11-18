@@ -2,7 +2,9 @@
   import AuthLayout from '@/Layouts/AuthLayout.vue';
   import Button from '@/Components/Button.vue';
   import Icon from '@/Components/Icon.vue';
+  import InputText from '@/Components/InputText.vue';
   import { GLOSSARY_TYPES } from '@/glossary';
+  import axios from 'axios';
   import { Book, Chapter, GlossaryEntry, GlossaryType } from '@/types/index';
   import { Link, router } from '@inertiajs/vue3';
   import { computed, ref } from 'vue';
@@ -25,6 +27,37 @@
   );
   const resume = computed(() => props.chapters.find((c) => c.id === props.book.last_read_text_id) ?? null);
   const notesCount = computed(() => props.chapters.reduce((sum, c) => sum + c.text_notes_count, 0));
+
+  // Search across all chapters, 10 hits at a time; a hit opens the chapter on its page with the words marked
+  type SearchHit = {
+    text_id: number;
+    chapter: string;
+    position: number;
+    offset: number;
+    length: number;
+    before: string;
+    match: string;
+    after: string;
+  };
+  const query = ref('');
+  const search = ref<{ q: string; page: number; results: SearchHit[]; hasMore: boolean; loading: boolean; error?: boolean } | null>(null);
+
+  async function runSearch(page = 1) {
+    const q = query.value.trim();
+    if (q.length < 2 || (search.value?.loading && search.value.q === q)) return;
+    search.value = { q, page, results: search.value?.q === q ? search.value.results : [], hasMore: false, loading: true };
+    try {
+      const { data } = await axios.get(`/books/${props.book.id}/search`, { params: { q, page } });
+      if (search.value?.q === q && search.value.page === page) search.value = { q, page, ...data, loading: false };
+    } catch {
+      if (search.value?.q === q) search.value = { q, page, results: [], hasMore: false, loading: false, error: true };
+    }
+  }
+
+  function clearSearch() {
+    query.value = '';
+    search.value = null;
+  }
 
   function deleteBook() {
     const warning = notesCount.value ? ` Its ${notesCount.value} footnotes will be deleted too.` : '';
@@ -85,13 +118,58 @@
           :key="key"
           class="-mb-px border-b-2 pb-2 text-sm font-medium transition-colors"
           :class="tab === key ? 'border-primary text-primary' : 'border-transparent text-textSecondary hover:text-primary'"
-          @click="tab = key"
+          @click="
+            tab = key;
+            clearSearch();
+          "
         >
           {{ label }}
         </button>
+        <form class="mb-2 ml-auto w-64" @submit.prevent="runSearch()">
+          <InputText v-model="query" placeholder="Search in this book…" />
+        </form>
       </div>
 
-      <section v-if="tab === 'glossary'" class="flex flex-col gap-4">
+      <section v-if="search" class="flex flex-col gap-3">
+        <div class="flex items-center justify-between text-sm text-textSecondary">
+          <span v-if="search.loading">Searching…</span>
+          <span v-else-if="search.error" class="text-error">Search failed. Please try again.</span>
+          <span v-else-if="search.results.length">Matches for “{{ search.q }}”</span>
+          <span v-else>No matches for “{{ search.q }}”</span>
+          <button class="hover:text-primary" @click="clearSearch">Clear search</button>
+        </div>
+        <ul
+          v-if="search.results.length"
+          class="divide-y divide-gray-100 rounded-lg border border-gray-200 bg-white"
+          :class="search.loading && 'opacity-60'"
+        >
+          <li v-for="hit in search.results" :key="`${hit.text_id}-${hit.offset}`">
+            <Link
+              :href="`/texts/${hit.text_id}?at=${hit.offset}&len=${hit.length}`"
+              class="block px-5 py-3 transition-colors hover:bg-gray-50"
+            >
+              <p class="text-xs font-medium text-primary">Chapter {{ hit.position }} · {{ hit.chapter }}</p>
+              <p class="mt-1 font-newsreader text-textPrimary">
+                {{ hit.before }}<mark class="rounded-sm bg-yellow-200 px-0.5 text-inherit">{{ hit.match }}</mark
+                >{{ hit.after }}
+              </p>
+            </Link>
+          </li>
+        </ul>
+        <div v-if="search.page > 1 || search.hasMore" class="flex items-center justify-between text-sm">
+          <Button
+            type="ghost"
+            icon="chevronLeft"
+            text="Previous"
+            :class="search.page === 1 && 'invisible'"
+            @click="runSearch(search.page - 1)"
+          />
+          <span class="text-textSecondary">Page {{ search.page }}</span>
+          <Button type="ghost" text="Next" :class="!search.hasMore && 'invisible'" @click="runSearch(search.page + 1)" />
+        </div>
+      </section>
+
+      <section v-else-if="tab === 'glossary'" class="flex flex-col gap-4">
         <div class="flex items-center justify-between gap-4">
           <div class="flex flex-wrap gap-2">
             <button

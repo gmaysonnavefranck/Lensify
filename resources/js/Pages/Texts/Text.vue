@@ -402,32 +402,52 @@
     return low;
   }
 
+  // The range covering characters [start, end) of the content in the rendered text
+  function contentDomRange(start: number, end: number): Range | null {
+    if (!contentContainer.value) return null;
+    const walker = document.createTreeWalker(contentContainer.value, NodeFilter.SHOW_TEXT);
+    // globalThis.Text is the DOM text node; plain `Text` here is the app's text type
+    type TextNode = globalThis.Text;
+    const range = document.createRange();
+    let seen = 0;
+    let started = false;
+    for (let node = walker.nextNode() as TextNode | null; node; node = walker.nextNode() as TextNode | null) {
+      if (!started && start < seen + node.length) {
+        range.setStart(node, start - seen);
+        started = true;
+      }
+      if (started && end <= seen + node.length) {
+        range.setEnd(node, end - seen);
+        return range;
+      }
+      seen += node.length;
+    }
+    return null;
+  }
+
   // The page showing a given character offset (whitespace has no reliable box, so measure the next visible char)
   function pageOfOffset(offset: number): number {
     const content = props.text.content;
     while (offset < content.length && /\s/.test(content[offset])) offset++;
     if (offset >= content.length) return pages.value - 1;
-    if (!contentContainer.value || offset <= 0) return 0;
-    const walker = document.createTreeWalker(contentContainer.value, NodeFilter.SHOW_TEXT);
-    // globalThis.Text is the DOM text node; plain `Text` here is the app's text type
-    type TextNode = globalThis.Text;
-    for (let node = walker.nextNode() as TextNode | null; node; node = walker.nextNode() as TextNode | null) {
-      if (offset < node.length) {
-        const range = document.createRange();
-        range.setStart(node, offset);
-        range.setEnd(node, offset + 1);
-        return pageAt(range.getBoundingClientRect().left);
-      }
-      offset -= node.length;
-    }
-    return pages.value - 1;
+    if (offset <= 0) return 0;
+    const range = contentDomRange(offset, offset + 1);
+    return range ? pageAt(range.getBoundingClientRect().left) : pages.value - 1;
   }
 
+  // Mark a search hit with the browser's highlight API (no DOM changes, so offsets and pages stay put)
+  function markSearchHit(start: number, length: number) {
+    const range = contentDomRange(start, start + length);
+    if (range && 'highlights' in CSS) CSS.highlights.set('search-hit', new globalThis.Highlight(range));
+  }
+  onUnmounted(() => 'highlights' in CSS && CSS.highlights.delete('search-hit'));
+
   // Fit the largest A4 page in the reading area, then count the columns the text fills.
-  // `keep`: stay on the same words, open at the start/end, or resume where the reader last stopped.
-  async function paginate(keep: 'position' | 'start' | 'end' | 'saved') {
+  // `keep`: stay on the same words, open at the start/end, at a character offset, or where the reader last stopped.
+  async function paginate(keep: 'position' | 'start' | 'end' | 'saved' | number) {
     if (!stage.value) return;
-    const offset = keep === 'position' ? visibleOffset() : (props.text.read_offset ?? 0);
+    const offset =
+      typeof keep === 'number' ? keep : keep === 'position' ? visibleOffset() : (props.text.read_offset ?? 0);
 
     const height = Math.min(stage.value.clientHeight, stage.value.clientWidth * PAGE_RATIO);
     pageSize.value = { width: height / PAGE_RATIO, height };
@@ -437,12 +457,16 @@
     const stride = textArea.value.width + PAGE_GAP;
     pages.value = Math.max(1, Math.round((flow.value.scrollWidth + PAGE_GAP) / stride));
     page.value = keep === 'start' ? 0 : keep === 'end' ? pages.value - 1 : pageOfOffset(offset);
+    if (typeof keep === 'number') markSearchHit(keep, Number(urlParam('len')) || 1);
   }
 
   const inertiaPage = usePage();
+  const urlParam = (name: string) => new URLSearchParams(inertiaPage.url.split('?')[1]).get(name);
+  // ?at=start|end when stepping between chapters, ?at=<offset>&len=<n> from a search result
   const openingMode = () => {
-    const at = new URLSearchParams(inertiaPage.url.split('?')[1]).get('at');
-    return at === 'end' ? 'end' : at === 'start' ? 'start' : 'saved';
+    const at = urlParam('at');
+    if (at === 'start' || at === 'end') return at;
+    return at && /^\d+$/.test(at) ? Number(at) : 'saved';
   };
 
   // Save the reading point shortly after the reader turns a page (never on automatic page changes)
@@ -964,3 +988,9 @@
     @close="glossaryModal = null"
   />
 </template>
+
+<style>
+  ::highlight(search-hit) {
+    background-color: rgb(253 224 71 / 0.8);
+  }
+</style>
