@@ -83,6 +83,7 @@ class TextController extends Controller
             ->with(['translations:id,translation_for,language'])
             ->where('user_id', Auth::id())
             ->findOrFail($request->route('id'));
+        $text->updateQuietly(['last_read_at' => now()]);
 
         return Inertia::render('Texts/Text', [
             'text' => $text,

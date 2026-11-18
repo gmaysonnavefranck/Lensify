@@ -515,11 +515,37 @@
     paginate(id !== oldId ? openingMode() : 'position'),
   );
 
+  // Reading stats: a forward turn is a page read, and any turn adds the time since the previous one,
+  // capped so a tab left open doesn't count. Sent in small batches.
+  // ponytail: the last few seconds of turns are lost if the tab is closed right away; use fetch keepalive if it matters
+  let pendingPages = 0;
+  let pendingSeconds = 0;
+  let lastTurnAt = Date.now();
+  let trackTimer: ReturnType<typeof setTimeout> | undefined;
+  function trackTurn(forward: boolean) {
+    const now = Date.now();
+    pendingSeconds += Math.min(Math.round((now - lastTurnAt) / 1000), 300);
+    if (forward) pendingPages++;
+    lastTurnAt = now;
+    clearTimeout(trackTimer);
+    trackTimer = setTimeout(flushTracking, 3000);
+  }
+  function flushTracking() {
+    clearTimeout(trackTimer);
+    if (!pendingPages && !pendingSeconds) return;
+    const date = new Date().toLocaleDateString('en-CA'); // the reader's local YYYY-MM-DD
+    axios.post('/reading', { date, pages: pendingPages, seconds: pendingSeconds }).catch(() => {});
+    pendingPages = pendingSeconds = 0;
+  }
+  onUnmounted(flushTracking);
+
   function nextPage() {
     if (page.value < pages.value - 1) {
       page.value++;
       scheduleSave();
     } else if (props.book?.next) router.visit(`/texts/${props.book.next.id}?at=start`);
+    else return;
+    trackTurn(true);
   }
 
   function prevPage() {
@@ -527,6 +553,8 @@
       page.value--;
       scheduleSave();
     } else if (props.book?.prev) router.visit(`/texts/${props.book.prev.id}?at=end`);
+    else return;
+    trackTurn(false);
   }
 
   // Find in chapter, like Ctrl+F: every match marked, Enter steps through them turning pages as needed.

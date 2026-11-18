@@ -16,10 +16,11 @@
   <div class="flex min-h-screen flex-col">
     <header class="flex h-[72px] items-center justify-between border-b-2 border-gray-200 px-3">
       <div class="flex items-center">
-        <Link href="/texts" class="ml-5 font-playfair text-3xl italic text-primary">Lensify</Link>
+        <Link href="/dashboard" class="ml-5 font-playfair text-3xl italic text-primary">Lensify</Link>
       </div>
       <div class="flex">
         <nav class="mr-12 flex gap-6 self-center">
+          <NavLink text="Home" href="/dashboard" icon="home" :selected="isPageSelected('Dashboard')" />
           <NavLink text="Texts" href="/texts" icon="texts" :selected="isPageSelected('Texts/Texts')" />
           <NavLink
             text="Books"

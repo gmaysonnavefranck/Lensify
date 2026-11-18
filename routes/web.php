@@ -3,6 +3,7 @@
 use App\Http\Controllers\AuthorController;
 use App\Http\Controllers\BookController;
 use App\Http\Controllers\ChatController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GlossaryController;
 use App\Http\Controllers\HighlightController;
 use App\Http\Controllers\ProfileController;
@@ -15,6 +16,11 @@ use Inertia\Inertia;
 
 Route::get('/', function () {
     return Inertia::render('Welcome');
+});
+
+Route::middleware(['auth', 'verified'])->group(function () {
+    Route::get('dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::post('reading', [DashboardController::class, 'track']);
 });
 
 Route::middleware(['auth', 'verified'])->prefix('texts')->group(function () {
