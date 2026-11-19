@@ -22,6 +22,10 @@ test('reading is tracked per day and the dashboard shows it', function () {
 
     $book = Book::create(['title' => 'Don Quixote', 'user_id' => $user->id]);
     $chapter = Text::factory()->create(['user_id' => $user->id, 'book_id' => $book->id, 'position' => 1, 'content' => str_repeat('a', 100)]);
+    // Two chapters of the same book read: the dashboard lists the book once, at the latest chapter
+    $earlier = Text::factory()->create(['user_id' => $user->id, 'book_id' => $book->id, 'position' => 0]);
+    $this->actingAs($user)->get("/texts/{$earlier->id}");
+    $this->travel(1)->minutes();
     $this->actingAs($user)->get("/texts/{$chapter->id}");
     $chapter->update(['read_offset' => 25]);
     Quote::create(['user_id' => $user->id, 'text_id' => $chapter->id, 'content' => 'The truth may be stretched thin, but it never breaks']);
@@ -31,6 +35,8 @@ test('reading is tracked per day and the dashboard shows it', function () {
         ->where('days.0.date', $today)
         ->where('days.0.pages', 5)
         ->where('recent.0.book.title', 'Don Quixote')
+        ->where('recent.0.id', $chapter->id)
+        ->has('recent', 1)
         ->where('recent.0.percent', 25)
         ->where('quote.content', 'The truth may be stretched thin, but it never breaks')
         ->where('totals.books', 1)

@@ -28,8 +28,11 @@ class DashboardController extends Controller
 
         $recent = Text::where('user_id', $userId)->whereNotNull('last_read_at')
             ->with(['book:id,title', 'author:id,name'])
-            ->latest('last_read_at')->limit(4)
+            ->latest('last_read_at')->limit(30)
             ->get(['id', 'title', 'book_id', 'author_id', 'position', 'read_offset', 'last_read_at', DB::raw('CHAR_LENGTH(content) as length')])
+            // One entry per book (its latest chapter), so a book read across chapters doesn't fill the list
+            ->unique(fn (Text $text) => $text->book_id ? "book-{$text->book_id}" : "text-{$text->id}")
+            ->take(4)->values()
             ->map(fn (Text $text) => [
                 'id' => $text->id,
                 'title' => $text->title,
