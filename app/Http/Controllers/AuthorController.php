@@ -87,10 +87,7 @@ class AuthorController extends Controller
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        // Set the author_id to null for all texts associated with this author
-        Text::where('author_id', $author->id)->update(['author_id' => null]);
-
-        // Now delete the author
+        // Their texts and books stay, unlinked (the foreign keys set author_id to null)
         $author->delete();
 
         return redirect()->route('authors.index');

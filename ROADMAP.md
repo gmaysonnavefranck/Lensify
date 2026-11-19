@@ -23,6 +23,7 @@ Sizes: **S** = hours, **M** = a day or two, **L** = several days.
 - [x] Home dashboard: continue reading, streak, pages and time per day with a 14-day chart, quote and word of the day, library totals
 - [x] Ask about a passage: select text, type your own question, AI answers with the surrounding text as context, keep it as a footnote
 - [x] Dark mode: toggle in the header, follows the system setting until you pick one, no white flash on load
+- [x] Privacy: deleting an account removes all of the user's data (foreign keys on every table), fonts are served from the app instead of Google
 
 ## Now: before launch
 
@@ -114,8 +115,6 @@ Shortcuts and limits in what's built, collected from the code (`ponytail:` comme
 - Ask caps each answer at 1500 tokens, which includes the model's reasoning. Raise it if real answers come back cut off.
 
 **Data and privacy**
-- Deleting an account leaves standalone texts, authors and footnotes in the database: those tables have no foreign keys to cascade from. Books, glossary, quotes, vocabulary, highlights and reading days are removed. **Before launch** (LGPD/GDPR): delete them in account deletion, or add the foreign keys after cleaning up orphans.
-- Fonts load from Google Fonts, which sends each visitor's IP to Google; courts in the EU have treated that as a GDPR issue. **Before launch**: serve the fonts from the app itself.
 - Footnote text and selected passages have no length limit on save.
 
 **Code**

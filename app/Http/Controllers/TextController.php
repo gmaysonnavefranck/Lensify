@@ -126,8 +126,7 @@ class TextController extends Controller
     {
         abort_unless($text->user_id === Auth::id(), 404);
 
-        // Footnotes have no cascading foreign key; quotes and vocabulary keep their entries, unlinked
-        $text->textNotes()->delete();
+        // Footnotes and highlights go with it; quotes and vocabulary stay, unlinked
         $text->delete();
 
         return $text->book_id ? redirect()->route('books.show', $text->book_id) : redirect()->route('texts.index');

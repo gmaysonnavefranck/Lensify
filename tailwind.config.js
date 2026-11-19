@@ -46,10 +46,9 @@ export default {
         textLight: '#EEF2F7',
       },
       fontFamily: {
-        inter: ['Inter', ...defaultTheme.fontFamily.sans],
-        newsreader: ['Newsreader', ...defaultTheme.fontFamily.serif],
-        playfair: ['Playfair Display', ...defaultTheme.fontFamily.serif],
-        sans: ['Figtree', ...defaultTheme.fontFamily.sans],
+        inter: ['Inter Variable', ...defaultTheme.fontFamily.sans],
+        newsreader: ['Newsreader Variable', ...defaultTheme.fontFamily.serif],
+        playfair: ['Playfair Display Variable', ...defaultTheme.fontFamily.serif],
       },
     },
   },

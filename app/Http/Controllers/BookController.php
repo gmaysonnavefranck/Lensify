@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Author;
 use App\Models\Book;
 use App\Models\Text;
-use App\Models\TextNote;
 use App\Support\BookParser;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -101,9 +100,7 @@ class BookController extends Controller
     {
         abort_unless($book->user_id === Auth::id(), 404);
 
-        // Footnotes have no cascading foreign key; quotes and vocabulary keep their entries, unlinked
-        TextNote::whereIn('text_id', $book->chapters()->select('id'))->delete();
-        $book->chapters()->delete();
+        // Chapters, their footnotes, highlights and the glossary go with it; quotes and vocabulary stay, unlinked
         $book->delete();
 
         return redirect()->route('books.index');
