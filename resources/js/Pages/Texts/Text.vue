@@ -20,6 +20,10 @@
 
   const selectedText = ref<string>('');
   const isWritingNote = ref<boolean>(false);
+  // Asking a question about the selection; the answer then opens in the footnote editor
+  const isAsking = ref(false);
+  const question = ref('');
+  const inDialog = computed(() => isWritingNote.value || isAsking.value);
   const isGeneratingExplanation = ref<boolean>(false);
   const isAiGenerated = ref<boolean>(false);
   const newFootnote = ref<string>('');
@@ -40,7 +44,7 @@
   function onMouseUp(event: MouseEvent) {
     // Keep the popup while interacting with it or while a note is in progress
     if (selectionPopup.value?.contains(event.target as Node)) return;
-    if (isWritingNote.value || isGeneratingExplanation.value || vocabState.value === 'saving') return;
+    if (inDialog.value || isGeneratingExplanation.value || vocabState.value === 'saving') return;
 
     const selection = window.getSelection();
     if (selection && !selection.isCollapsed) clampSelectionToPage(selection);
@@ -159,7 +163,7 @@
   function placePopup() {
     const el = selectionPopup.value;
     const anchor = selectedTextPosition.value;
-    if (!el || !anchor || isWritingNote.value) return;
+    if (!el || !anchor || inDialog.value) return;
 
     const margin = 8;
     const { offsetWidth: width, offsetHeight: height } = el;
@@ -617,7 +621,7 @@
       return;
     }
     if (event.altKey || event.ctrlKey || event.metaKey || target.closest('input, textarea, [contenteditable]')) return;
-    if (isWritingNote.value || editingNoteId.value !== null || isEditingText.value || glossaryModal.value) return;
+    if (inDialog.value || editingNoteId.value !== null || isEditingText.value || glossaryModal.value) return;
     if (event.key === 'ArrowRight' || event.key === 'PageDown') nextPage();
     else if (event.key === 'ArrowLeft' || event.key === 'PageUp') prevPage();
     else return;
@@ -679,6 +683,26 @@
     isWritingNote.value = true;
   }
 
+  const isWaitingForAnswer = ref(false);
+  async function askQuestion() {
+    const range = selectedRange.value;
+    const asked = question.value.trim();
+    if (!range || !asked || isWaitingForAnswer.value) return;
+    isWaitingForAnswer.value = true;
+    aiError.value = '';
+    try {
+      const { data } = await axios.post('/chat/ask', { text_id: props.text.id, start: range.start, end: range.end, question: asked });
+      // The question stays with the answer, so the footnote makes sense later
+      newFootnote.value = `${asked}\n\n${data.answer}`;
+      isAiGenerated.value = true;
+      isAsking.value = false;
+      isWritingNote.value = true;
+    } catch {
+      aiError.value = "Couldn't get an answer right now. Try again in a moment.";
+    }
+    isWaitingForAnswer.value = false;
+  }
+
   function saveFootnote() {
     const range = selectedRange.value;
     if (!range || !newFootnote.value.trim()) return;
@@ -720,6 +744,8 @@
 
   function closeCreateFootnoteMenu() {
     isWritingNote.value = false;
+    isAsking.value = false;
+    question.value = '';
     isGeneratingExplanation.value = false;
     isAiGenerated.value = false;
     aiError.value = '';
@@ -997,8 +1023,8 @@
     v-if="selectedTextPosition && (selectedText || highlightTarget)"
     ref="selectionPopup"
     class="fixed z-50 max-w-[calc(100vw-16px)] rounded-lg border border-gray-200 bg-white p-2 shadow-lg"
-    :class="isWritingNote ? 'max-h-[90vh] -translate-x-1/2 -translate-y-1/2 transform overflow-y-auto' : ''"
-    :style="isWritingNote ? { top: '50%', left: '50%' } : popupPosition"
+    :class="inDialog ? 'max-h-[90vh] -translate-x-1/2 -translate-y-1/2 transform overflow-y-auto' : ''"
+    :style="inDialog ? { top: '50%', left: '50%' } : popupPosition"
   >
     <div v-if="highlightTarget" class="flex items-center gap-1.5 px-1">
       <button
@@ -1012,7 +1038,7 @@
       <Button type="ghost" icon="trash" class="!p-1.5 hover:!text-error" title="Remove highlight" @click="removeHighlight" />
     </div>
     <div
-      v-else-if="!isGeneratingExplanation && !isWritingNote && vocabState === 'idle' && !savedQuote"
+      v-else-if="!isGeneratingExplanation && !inDialog && vocabState === 'idle' && !savedQuote"
       class="flex flex-wrap items-center gap-1"
     >
       <div class="flex items-center gap-1 border-r border-gray-200 pl-1 pr-2" title="Highlight">
@@ -1033,7 +1059,36 @@
       <Button v-if="book && selectedText.length <= 80" type="ghost" icon="author" title="Add to the book's glossary" @click="addToGlossary">
         Glossary
       </Button>
+      <Button type="ghost" icon="messagePlus" title="Ask the AI your own question about this" @click="isAsking = true">
+        Ask
+      </Button>
       <Button icon="sparkles" title="Generate an AI analysis" @click="generateExplanation">Analyze</Button>
+    </div>
+    <div v-if="isAsking" class="w-[min(560px,90vw)] p-2">
+      <div class="mb-4 flex items-center justify-between">
+        <p class="font-medium text-textPrimary">Ask about this passage</p>
+        <Button class="!p-1" type="ghost" icon="x" @click="closeCreateFootnoteMenu" />
+      </div>
+      <p class="line-clamp-3 text-sm italic text-textSecondary">"{{ selectedText }}"</p>
+      <hr class="my-4" />
+      <p v-if="aiError" class="mb-3 text-sm text-error">{{ aiError }}</p>
+      <textarea
+        v-model="question"
+        rows="3"
+        maxlength="200"
+        autofocus
+        placeholder="e.g., Is Sancho Panza's name about his belly?"
+        class="w-full resize-y rounded-md border border-gray-200 px-4 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary/30"
+        :disabled="isWaitingForAnswer"
+        @keydown.enter.exact.prevent="askQuestion"
+      />
+      <div class="mt-2 flex items-center justify-end gap-2">
+        <span v-if="isWaitingForAnswer" class="mr-auto flex items-center gap-2 text-sm text-textSecondary">
+          <Icon icon="loading" class="h-4 w-4 animate-spin text-primary" /> Thinking…
+        </span>
+        <Button type="ghost" @click="closeCreateFootnoteMenu">Cancel</Button>
+        <Button icon="sparkles" :disabled="isWaitingForAnswer || !question.trim()" @click="askQuestion">Ask</Button>
+      </div>
     </div>
     <div v-if="savedQuote" class="flex items-center gap-4 px-2 py-1 text-sm">
       <span class="flex items-center gap-1 text-success">

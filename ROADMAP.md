@@ -21,6 +21,7 @@ Sizes: **S** = hours, **M** = a day or two, **L** = several days.
 - [x] Highlights: marker-pen highlights in four colors, no note needed, saved instantly
 - [x] Search: whole-book search (10 hits per page, snippets, opens on the right page) and find in chapter (Ctrl+F)
 - [x] Home dashboard: continue reading, streak, pages and time per day with a 14-day chart, quote and word of the day, library totals
+- [x] Ask about a passage: select text, type your own question, AI answers with the surrounding text as context, keep it as a footnote
 
 ## Now: before launch
 
@@ -33,7 +34,7 @@ Sizes: **S** = hours, **M** = a day or two, **L** = several days.
 
 ## Next: reading
 
-- [ ] **Ask about a passage** (S): select text and type your own question ("is Sancho Panza's name about his belly?"); the AI answers using the passage and book, and the answer can be kept as a footnote. Covers what a generic Analyze would never guess
+- [ ] **Night reading themes** (S): light, sepia and night themes for the reader page, toggled next to the text size controls
 - [ ] **"Previously on…" recap** (M): AI summary of what you read so far when you come back to a book, built only from chapters before your reading point (no spoilers)
 - [ ] **Glossary mentions** (S/M): where each name appears, located finer than a chapter (page or percentage), first appearance first
 - [ ] **Book recommendations** (S): AI suggests a next book from recent books and authors, cached daily, shown on the dashboard
@@ -69,7 +70,7 @@ Sizes: **S** = hours, **M** = a day or two, **L** = several days.
 - **Shared editions for classes** (L): a teacher shares an annotated text, students add their own notes
 - **Read aloud** (S): text-to-speech for the text and its footnotes
 - **Portuguese interface** (M): PT-BR UI for the Brazilian student niche (ENEM reading lists)
-- **Dark mode** (S)
+- **Full app dark mode** (M): dark version of every page; the reader already has night themes once those ship
 
 ## Known gaps
 
@@ -98,3 +99,11 @@ Deliberate shortcuts in what's built. Each is fine for now; the fix is noted for
 
 **General**
 - Character offsets assume no emoji or rare symbols: PHP counts characters, the browser counts UTF-16 units. Fine for book text.
+
+**AI**
+- Only the `/chat` routes are rate-limited (20 a minute). Word definitions, author lookup and text detection also call the AI and aren't limited. Fix: the monthly AI quota, or the same throttle on those routes.
+- Analyze and word definitions put instructions and the reader's text in one message. Ask keeps them apart (system message plus tagged user text). Fix: move them to the same pattern.
+- Ask caps each answer at 1500 tokens, which includes the model's reasoning. Raise it if real answers come back cut off.
+
+**Data**
+- Deleting an account leaves standalone texts, authors and footnotes in the database: those tables have no foreign keys to cascade from. Books, glossary, quotes, vocabulary, highlights and reading days are removed. **Fix before launch** (LGPD/GDPR): delete them in account deletion, or add the foreign keys after cleaning up orphans.

@@ -80,8 +80,10 @@ Route::middleware(['auth', 'verified'])->prefix('authors')->group(function () {
     Route::post('fetch-author', [AuthorController::class, 'getAuthorInformation']);
 });
 
-Route::middleware(['auth', 'verified'])->prefix('chat')->group(function () {
+// AI calls cost money per request: cap each user at 20 a minute
+Route::middleware(['auth', 'verified', 'throttle:20,1'])->prefix('chat')->group(function () {
     Route::post('analyze-text', [ChatController::class, 'analyzeText']);
+    Route::post('ask', [ChatController::class, 'ask']);
 });
 
 Route::middleware('auth')->group(function () {
