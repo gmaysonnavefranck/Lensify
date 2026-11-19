@@ -1,5 +1,9 @@
 <script setup lang="ts">
   import PublicHeader from '@/Components/PublicHeader.vue';
+  import { onMounted } from 'vue';
+
+  // Pages before the app are always light; logging out doesn't reload the page
+  onMounted(() => document.documentElement.classList.remove('dark'));
 </script>
 
 <template>

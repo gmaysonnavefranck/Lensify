@@ -6,11 +6,9 @@
 
         <title inertia>{{ config('app.name', 'Laravel') }}</title>
 
-        <!-- Fonts -->
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
-
-        <!-- Theme before first paint, so dark mode doesn't flash white: saved choice, else the system setting -->
+        <!-- Theme before first paint, so dark mode doesn't flash white: saved choice, else the system setting.
+             Pages before the app (landing, login, registration) are always light. -->
+        @unless ($page['component'] === 'Welcome' || str_starts_with($page['component'], 'Auth/'))
         <script>
             try {
                 const theme = localStorage.getItem('lensify.theme');
@@ -19,6 +17,7 @@
                 }
             } catch (e) {}
         </script>
+        @endunless
 
         <!-- Scripts -->
         @routes

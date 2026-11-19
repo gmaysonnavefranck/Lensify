@@ -5,6 +5,8 @@ import vue from '@vitejs/plugin-vue';
 export default defineConfig({
     // Windows bind mounts don't forward file events into Docker, so poll for changes
     server: {
+        // Inside Sail Vite binds to [::]; browsers need a reachable host for the asset URLs
+        hmr: { host: 'localhost' },
         watch: {
             usePolling: true,
             interval: 1000,

@@ -8,9 +8,19 @@
 
   const page = usePage();
 
-  // The theme class is set before paint in app.blade.php; this button flips it and remembers the choice
+  // The theme class is set before paint in app.blade.php; this button flips it and remembers the choice.
+  // Re-applied on mount too: pages before the app strip it, and logging in doesn't reload the page.
   const isDark = ref(false);
-  onMounted(() => (isDark.value = document.documentElement.classList.contains('dark')));
+  onMounted(() => {
+    let theme: string | null = null;
+    try {
+      theme = localStorage.getItem('lensify.theme');
+    } catch {
+      // Private mode: fall back to the system setting
+    }
+    isDark.value = theme === 'dark' || (!theme && matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.classList.toggle('dark', isDark.value);
+  });
   function toggleTheme() {
     isDark.value = !isDark.value;
     document.documentElement.classList.toggle('dark', isDark.value);

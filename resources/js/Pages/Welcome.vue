@@ -2,6 +2,10 @@
   import Icon from '@/Components/Icon.vue';
   import PublicHeader from '@/Components/PublicHeader.vue';
   import { Link } from '@inertiajs/vue3';
+  import { onMounted } from 'vue';
+
+  // Always light, like the login pages; logging out lands here without a page reload
+  onMounted(() => document.documentElement.classList.remove('dark'));
 
   const features = [
     {
