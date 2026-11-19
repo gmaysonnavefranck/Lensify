@@ -159,7 +159,7 @@
             >
               <p class="text-xs font-medium text-primary">Chapter {{ hit.position }} · {{ hit.chapter }}</p>
               <p class="mt-1 font-newsreader text-textPrimary">
-                {{ hit.before }}<mark class="rounded-sm bg-yellow-200 px-0.5 text-inherit">{{ hit.match }}</mark
+                {{ hit.before }}<mark class="rounded-sm bg-yellow-200 px-0.5 dark:bg-yellow-400/30 text-inherit">{{ hit.match }}</mark
                 >{{ hit.after }}
               </p>
             </Link>

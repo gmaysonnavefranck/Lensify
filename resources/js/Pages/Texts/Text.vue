@@ -101,10 +101,10 @@
 
   // Highlights: a marker pen, no note needed
   const HIGHLIGHT_COLORS: Record<HighlightColor, string> = {
-    yellow: 'bg-yellow-200/80',
-    green: 'bg-green-200/80',
-    blue: 'bg-sky-200/80',
-    pink: 'bg-pink-200/80',
+    yellow: 'bg-yellow-200/80 dark:bg-yellow-400/30',
+    green: 'bg-green-200/80 dark:bg-green-400/25',
+    blue: 'bg-sky-200/80 dark:bg-sky-400/25',
+    pink: 'bg-pink-200/80 dark:bg-pink-400/25',
   };
   const highlightTarget = ref<Highlight | null>(null);
 
@@ -790,7 +790,7 @@
           ref="findInput"
           v-model="findQuery"
           type="search"
-          placeholder="Find in chapter"
+          :placeholder="book ? 'Find in chapter' : 'Find in text'"
           class="w-44 rounded-md border border-gray-200 px-3 py-1.5 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary/30"
           @keydown.enter.prevent="showFindHit(findIndex + ($event.shiftKey ? -1 : 1))"
           @keydown.esc="findQuery = ''"
@@ -810,8 +810,11 @@
         <Icon icon="globe" class="h-4 w-4" />
         {{ text.language }}
       </span>
-      <Button type="outline" icon="squarePen" text="Edit" @click="isEditingText = true" />
-      <Button type="danger" icon="trash" text="Delete" @click="deleteText" />
+      <!-- Chapters are managed from their book page -->
+      <template v-if="!book">
+        <Button type="outline" icon="squarePen" text="Edit" @click="isEditingText = true" />
+        <Button type="danger" icon="trash" text="Delete" @click="deleteText" />
+      </template>
     </div>
   </div>
   <div class="flex h-[calc(100vh-136px)] max-h-[calc(100vh-136px)] w-full">
@@ -855,7 +858,7 @@
               >{{ segment.text }}</mark
             ><span
                     v-else-if="segment.entry"
-                    class="cursor-pointer underline decoration-amber-500/60 decoration-dotted decoration-2 underline-offset-4 hover:bg-amber-100/60"
+                    class="cursor-pointer underline decoration-amber-500/60 decoration-dotted decoration-2 underline-offset-4 hover:bg-amber-100/60 dark:hover:bg-amber-400/20"
                     :class="segment.color && HIGHLIGHT_COLORS[segment.color]"
                     @mouseenter="showEntryCard(segment.entry, $event)"
                     @mouseleave="hoveredEntry = null"

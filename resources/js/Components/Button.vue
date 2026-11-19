@@ -68,11 +68,11 @@
     @apply border border-red-200 bg-transparent font-normal text-error;
 
     &:hover {
-      @apply bg-red-50;
+      @apply bg-red-50 dark:bg-red-500/10;
     }
 
     &:active {
-      @apply bg-red-100;
+      @apply bg-red-100 dark:bg-red-500/20;
     }
   }
 

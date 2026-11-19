@@ -10,6 +10,16 @@
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
 
+        <!-- Theme before first paint, so dark mode doesn't flash white: saved choice, else the system setting -->
+        <script>
+            try {
+                const theme = localStorage.getItem('lensify.theme');
+                if (theme === 'dark' || (!theme && matchMedia('(prefers-color-scheme: dark)').matches)) {
+                    document.documentElement.classList.add('dark');
+                }
+            } catch (e) {}
+        </script>
+
         <!-- Scripts -->
         @routes
         @vite(['resources/js/app.ts', "resources/js/Pages/{$page['component']}.vue"])

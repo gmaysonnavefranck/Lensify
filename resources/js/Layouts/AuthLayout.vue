@@ -3,8 +3,23 @@
   import Dropdown from '@/Components/Dropdown.vue';
   import DropdownLink from '@/Components/DropdownLink.vue';
   import NavLink from '@/Components/NavLink.vue';
+  import Icon from '@/Components/Icon.vue';
+  import { onMounted, ref } from 'vue';
 
   const page = usePage();
+
+  // The theme class is set before paint in app.blade.php; this button flips it and remembers the choice
+  const isDark = ref(false);
+  onMounted(() => (isDark.value = document.documentElement.classList.contains('dark')));
+  function toggleTheme() {
+    isDark.value = !isDark.value;
+    document.documentElement.classList.toggle('dark', isDark.value);
+    try {
+      localStorage.setItem('lensify.theme', isDark.value ? 'dark' : 'light');
+    } catch {
+      // Private mode: the choice just isn't remembered
+    }
+  }
 
   function isPageSelected(route: string) {
     return route === page.component;
@@ -37,6 +52,13 @@
             :selected="isPageSelected('Vocabulary/Vocabulary')"
           />
         </nav>
+        <button
+          class="mr-4 self-center rounded-full p-2 text-textSecondary transition-colors hover:bg-gray-100 hover:text-primary"
+          :title="isDark ? 'Switch to light mode' : 'Switch to dark mode'"
+          @click="toggleTheme"
+        >
+          <Icon :icon="isDark ? 'sun' : 'moon'" class="h-5 w-5" />
+        </button>
         <Dropdown align="right" width="48">
           <template #trigger>
             <button class="rounded-full focus:outline-none focus:ring-2 focus:ring-primary/40">

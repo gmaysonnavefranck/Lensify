@@ -94,7 +94,7 @@
       </div>
       <hr />
       <div class="p-6" v-if="!isLoading && !isSavingText">
-        <div class="mb-6 flex items-start justify-start gap-3 rounded-lg bg-blue-50 p-4">
+        <div class="mb-6 flex items-start justify-start gap-3 rounded-lg bg-blue-50 p-4 dark:bg-blue-500/10">
           <Icon icon="info" class="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600" />
           <span class="text-sm">
             Just paste or type your text below. Don't worry if you don't have all the details - our AI will help
@@ -110,7 +110,7 @@
             class="w-full rounded-md border border-gray-200 px-4 py-2 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-200"
           />
         </div>
-        <div class="mb-6 flex items-start justify-start gap-3 rounded-lg bg-[#F0FDF4] p-4">
+        <div class="mb-6 flex items-start justify-start gap-3 rounded-lg bg-[#F0FDF4] dark:bg-green-500/10 p-4">
           <Icon icon="sparkles" class="mt-0.5 h-5 w-5 flex-shrink-0 text-green-600" />
           <div>
             <p className="mt-1 mb-2 text-sm font-medium leading-none text-textPrimary">We'll help identify:</p>
@@ -139,11 +139,11 @@
         <p class="text-sm text-textSecondary">We're processing the content and identifying key information...</p>
       </div>
       <div v-if="!isLoading && isSavingText" class="p-6">
-        <div v-if="fetchError" class="mb-6 flex items-start gap-3 rounded-lg bg-red-50 p-4">
+        <div v-if="fetchError" class="mb-6 flex items-start gap-3 rounded-lg bg-red-50 p-4 dark:bg-red-500/10">
           <Icon icon="info" class="mt-0.5 h-5 w-5 flex-shrink-0 text-error" />
           <span class="text-sm text-error">{{ fetchError }}</span>
         </div>
-        <div v-else class="mb-6 flex items-start justify-start gap-3 rounded-lg bg-blue-50 p-4">
+        <div v-else class="mb-6 flex items-start justify-start gap-3 rounded-lg bg-blue-50 p-4 dark:bg-blue-500/10">
           <Icon icon="check" class="mt-0.5 h-5 w-5 flex-shrink-0 text-blue-600" />
           <span class="text-sm">
             We've analyzed your text. Please review and edit the information below if needed.

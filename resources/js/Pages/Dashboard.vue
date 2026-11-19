@@ -127,8 +127,8 @@
                 Open <Icon icon="chevronRight" class="h-4 w-4" />
               </span>
             </div>
-            <div class="h-1.5 overflow-hidden rounded-full bg-white/20">
-              <div class="h-full rounded-full bg-white" :style="{ width: `${progressPercent(current)}%` }" />
+            <div class="h-1.5 overflow-hidden rounded-full bg-[rgb(255_255_255/0.2)]">
+              <div class="h-full rounded-full bg-[#fff]" :style="{ width: `${progressPercent(current)}%` }" />
             </div>
           </div>
         </Link>
@@ -149,7 +149,7 @@
           <div class="flex items-center gap-3">
             <div
               class="flex h-11 w-11 items-center justify-center rounded-full"
-              :class="readToday ? 'bg-orange-100 text-orange-500' : 'bg-gray-100 text-textSecondary'"
+              :class="readToday ? 'bg-orange-100 text-orange-500 dark:bg-orange-500/20' : 'bg-gray-100 text-textSecondary'"
             >
               <Icon icon="flame" class="h-6 w-6" />
             </div>

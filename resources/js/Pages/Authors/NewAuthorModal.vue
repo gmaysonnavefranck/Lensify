@@ -103,7 +103,7 @@
           placeholder="e.g., Dante Alighieri"
           label="Author Name"
         />
-        <div class="mt-6 flex gap-3 rounded-lg bg-[#F0FDF4] p-4">
+        <div class="mt-6 flex gap-3 rounded-lg bg-[#F0FDF4] dark:bg-green-500/10 p-4">
           <Icon icon="sparkles" class="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
           <div>
             <p class="mb-1 text-sm font-medium text-textPrimary">We'll use AI to fetch author information</p>
@@ -118,13 +118,13 @@
       </div>
 
       <div v-if="!isLoading && isSavingAuthor" class="min-h-0 space-y-6 overflow-y-auto p-6">
-        <div v-if="fetchError" class="flex gap-3 rounded-lg bg-red-50 p-4">
+        <div v-if="fetchError" class="flex gap-3 rounded-lg bg-red-50 p-4 dark:bg-red-500/10">
           <Icon icon="info" class="h-5 w-5 shrink-0 text-error" />
           <span class="text-sm text-error">{{ fetchError }}</span>
         </div>
-        <div v-else-if="!author" class="flex gap-3 rounded-lg bg-blue-50 p-4">
+        <div v-else-if="!author" class="flex gap-3 rounded-lg bg-blue-50 p-4 dark:bg-blue-500/10">
           <Icon icon="info" class="h-5 w-5 shrink-0 text-blue-600" />
-          <span class="text-sm text-blue-700">Review the information below. You can edit it before saving.</span>
+          <span class="text-sm text-blue-700 dark:text-blue-300">Review the information below. You can edit it before saving.</span>
         </div>
 
         <section class="grid grid-cols-2 gap-4">
